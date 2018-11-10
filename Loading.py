@@ -32,19 +32,22 @@ def LoadShapeFile(theShpPath, db, theCollection, SRID=4326):
             print("Found Existing collection with same name %s \n Dropping old collection" % (theCollection))
             mongoDB.drop_collection(theCollection)
         
-        print()
+        
         mongoCollection  = db[theCollection]
+        
         for f, feature in enumerate(theShp):
             featureType = feature['geometry']['type']
-            print(featureType)
+            print(featureType, len(feature['geometry']['coordinates']))
             if featureType == 'Polygon':
                 featureCoordinates = feature['geometry']['coordinates']
                 mongoDBCoordinates = [list(p) for polys in featureCoordinates for p in polys]
-        #.replace("(","[").replace(")", "]")
+        
+                #fakeCoordinates = [[ [-96.50, 49.14 ], [-90.77, 48.46], [-91.00, 45.98], [-97.37, 46.00], [-96.50, 49.14 ] ]]
     
-                featureDict = {'type': featureType, 'coordinates': mongoDBCoordinates, 'id': feature['properties']['ID'], 'name': feature['properties']['NAME']}
-                mongoCollection.insert_one(featureDict)
-                print("Loaded feature %s of %s" % (f, len(theShp)))
+                
+                mongoCollection.insert_one({'geom': {'type': featureType, 'coordinates': [mongoDBCoordinates] }} )
+                print("Loaded feature %s of %s" % (f+1, len(theShp)))
+                #break
                 #return(mongoDBCoordinates, featureCoordinates)
                 #break
             
@@ -53,17 +56,23 @@ def LoadShapeFile(theShpPath, db, theCollection, SRID=4326):
                 for polygon in feature['geometry']['coordinates']:
                     
                     mongoDBCoordinates = [list(p) for polys in polygon for p in polys]
-                    multiPolygon.append(mongoDBCoordinates)
+                    multipart = [mongoDBCoordinates]
+                    multiPolygon.append(multipart)
                 
+                mongoCollection.insert_one({'geom': {'type': featureType, 'coordinates': multiPolygon }} )
+                print("Loaded feature %s of %s" % (f+1, len(theShp)))
+
                 #return(feature, multiPolygon, mongoDBCoordinates)
                 
-        mongoCollection.create_index([('coordinates', pymongo.GEO2D)])
+        #mongoCollection.create_index([('coordinates', pymongo.GEO2D)])
+        mongoCollection.create_index([('geom', pymongo.GEOSPHERE)])
+        #mongoCollection.create_index([('coordinates', pymongo.GEOSPHERE)])
             
         
     
         
             
-myShpPath = r"C:\scidb\shapefiles\4326\counties.shp"
+myShpPath = r"C:\scidb\us_states.shp" #r"C:\scidb\mn_county_boundaries.shp" #r"C:\scidb\shapefiles\4326\counties.shp"
 directory, shapeFileName = os.path.split(myShpPath)
 collectionName = shapeFileName.split('.')[0]
 
