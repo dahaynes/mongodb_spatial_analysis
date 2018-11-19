@@ -80,7 +80,7 @@ for c, shapefile in enumerate(shapefiles):
     featureDatasetPath = r"%s\%s" % (geoDatabase, featureDataset)
     topologyPath = r"%s\%s\%s" % (geoDatabase, featureDataset, topologyName)
     arcpy.CreateTopology_management(featureDatasetPath, topologyName)  
-    featureClassName = shapeFileName.split("_")[0]
+    featureClassName = featureDataset
     ImportFeatureClass(shapeFilePath, featureDatasetPath, featureClassName)
     featureClassPath = r"%s\%s" % (featureDatasetPath, featureClassName)
     AddFeatureToTopology(topologyPath, featureClassPath)
@@ -90,7 +90,7 @@ for c, shapefile in enumerate(shapefiles):
         arcpy.ValidateTopology_management(topologyPath)
     except:
         print("Topology not created %s" % (featureClassName))
-    
+#    
     
     
 print("Finished")
