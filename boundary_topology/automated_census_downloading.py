@@ -5,17 +5,18 @@ Spyder Editor
 This script will automate the downloading process
 """
 
-import requests, zipfile, io
+import requests, zipfile, io, csv
 from bs4 import BeautifulSoup
 
-theShapeFileDirectory = r"c:\scidb\vector"
+theShapeFileDirectory = r"E:\scidb_datasets\vector"
+fipsCodeFilePath = r"c:\scidb\monogo"
 theUrl = "https://www2.census.gov/geo/tiger/TIGER2010BLKPOPHU/"
 
 r = requests.get(theUrl)
 webpage = BeautifulSoup(r.text, "html.parser")
 
 table = webpage.find("table")
-# Find all tr rows
+# Find all table row (tr rows)
 tr = table.find_all("tr")
 
 hrefs = []
@@ -28,14 +29,16 @@ for each_tr in tr[3:]:
         if each_td.find('a'): hrefs.append(each_td.find('a')['href'])
         
         
-    break
-print("Downloading and Extracting files")
-for c, h in enumerate(hrefs):
-    print("Downloading %s of %s" % (c+1, len(hrefs)) )
-    urlZip = "%s/%s" % (theUrl, h)
-    theZip = requests.get(urlZip)
-    z = zipfile.ZipFile(io.BytesIO(theZip.content))
-    z.extractall(theShapeFileDirectory)
+
+
+
+#print("Downloading and Extracting files")
+#for c, h in enumerate(hrefs):
+#    print("Downloading %s of %s" % (c+1, len(hrefs)) )
+#    urlZip = "%s/%s" % (theUrl, h)
+#    theZip = requests.get(urlZip)
+#    z = zipfile.ZipFile(io.BytesIO(theZip.content))
+#    z.extractall(theShapeFileDirectory)
 
     
 #        if(each_td.text == "Details")
