@@ -86,8 +86,11 @@ for c, shapefile in enumerate(shapefiles):
     AddFeatureToTopology(topologyPath, featureClassPath)
     AddTopologyRules(topologyPath, featureClassPath)
     print("validating_topology")
-    arcpy.ValidateTopology_management(topologyPath)
-    break
+    try:
+        arcpy.ValidateTopology_management(topologyPath)
+    except:
+        print("Topology not created %s" % (featureClassName))
+    
     
     
 print("Finished")
