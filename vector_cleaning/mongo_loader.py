@@ -58,10 +58,6 @@ def CreateIndex(theCollection):
     
 
 
-
-
-
-
 mongoCon, mongoDB = CreateMongoConnection()
 #pgCon, pgCur = CreatPostgreSQLConnection()    
 #df = gpd.GeoDataFrame.from_postgis("SELECT gid, namelsad00, geom2 FROM tracts2", pgCon, geom_col='geom2' )
@@ -70,6 +66,7 @@ with fiona.open(theShapeFilePath, 'r', crs=4326) as theShp:
     
     CreateMongoCollection(mongoCon, collectionName )
     mongoCollection  = mongoDB[collectionName]
+    badGeoms = []
    
 #    for k, row in df.iterrows():
 #        featureGeom = shapely.wkb.loads(row.geom2.wkb_hex,hex=True)
@@ -82,9 +79,15 @@ with fiona.open(theShapeFilePath, 'r', crs=4326) as theShp:
         #print(featureType, len(feature['geometry']['coordinates']))
         theFeaturePoints = feature['geometry']['coordinates']
         if featureType ==  "Polygon":
-            #Single ring polygons
-            #if len(feature['geometry']['coordinates']) == 1:
-            theFeature = Polygon(theFeaturePoints[0])
+            
+            if len(feature['geometry']['coordinates']) == 1:
+                #Single ring polygons
+                theFeature = Polygon(theFeaturePoints[0])
+            else:
+                #Single ring polygons with interior rings
+                interiorRings = [inR for inR in feature['geometry']['coordinates'][1:] ]
+                    
+                theFeature = Polygon(theFeaturePoints[0], holes=interiorRings )
         
         else:
             listofPolygons  = [ Polygon(poly[0]) for poly in theFeaturePoints]
@@ -95,35 +98,62 @@ with fiona.open(theShapeFilePath, 'r', crs=4326) as theShp:
 ##        featureGeom.type
 ##        featureGeom[0].exterior.coords
         if featureType == 'Polygon':
+            #   {
+            #  type : "Polygon",
+            #  coordinates : [
+            #     [ [ 0 , 0 ] , [ 3 , 6 ] , [ 6 , 1 ] , [ 0 , 0 ] ], #exterior ring
+            #     [ [ 2 , 2 ] , [ 3 , 3 ] , [ 4 , 2 ] , [ 2 , 2 ] ]  #interior ring
+            #  ]
+            # }
             if theFeature.is_valid and theFeature.exterior.is_closed and theFeature.exterior.is_valid:
-                
-                if len(feature['geometry']['coordinates']) == 1:
-                    ringCoordinates = [list(pointPair) for ring in theFeaturePoints for pointPair in ring]
-                    mongoDBCoordinates = [ringCoordinates]
-                
+                mongoDBCoordinates = []
+#                if len(feature['geometry']['coordinates']) == 1:
+                dataset = [ list(pointpair) for pointpair in theFeature.exterior.coords ]
+                    #ringCoordinates = [list(pointPair) for ring in theFeaturePoints for pointPair in ring]
+                    #mongoDBCoordinates = [dataset]
+                    
+                mongoDBCoordinates.append(dataset)
                 if len(feature['geometry']['coordinates']) > 1:
-                    mongoDBCoordinates = []
-                    for rings in theFeaturePoints:
-                        coordinateArray = [ list(pointPair) for pointPair in rings] 
-                        mongoDBCoordinates.append(coordinateArray)
+                
+                    
+                    for interiorRings in list(theFeature.interiors):
+                        rings = [ list(pointPair) for pointPair in interiorRings.coords ]
+                        mongoDBCoordinates.append(rings)
+#                    for rings in theFeaturePoints:
+#                        coordinateArray = [ list(pointPair) for pointPair in rings] 
+#                        mongoDBCoordinates.append(coordinateArray)
+                    
                     
                 insertData = True
             
         if featureType == 'MultiPolygon' and len(feature['geometry']['coordinates']) > 1:
+            #   {
+            #  type: "MultiPolygon",
+            #  coordinates: [
+            #     [ [ [ -73.958, 40.8003 ], [ -73.9498, 40.7968 ], [ -73.9737, 40.7648 ], [ -73.9814, 40.7681 ], [ -73.958, 40.8003 ] ] ],
+            #     [ [ [ -73.958, 40.8003 ], [ -73.9498, 40.7968 ], [ -73.9737, 40.7648 ], [ -73.958, 40.8003 ] ] ]
+            #  ]
+            #}
+            #not covering the case with multipolygons that have interiors
+            mongoDBCoordinates = []
             for aPolygon in theFeature.geoms:
                 if aPolygon.is_valid and aPolygon.exterior.is_closed and aPolygon.exterior.is_valid:   
-                    mongoDBCoordinates = []
-                    for rings in theFeaturePoints:
-                        coordinateArray = [ list(pointPair) for pointPair in rings] 
-                        mongoDBCoordinates.append(coordinateArray)
+                    dataset = [ list(pointpair) for pointpair in aPolygon.exterior.coords ]
+                    
+#                    for rings in theFeaturePoints:
+#                        coordinateArray = [ list(pointPair) for pointPair in rings] 
+                    mongoDBCoordinates.append([dataset])
                     insertData = True
+            
                 
                     
                 
         if insertData:
             mongoR = mongoCollection.insert_one({'geom': {'type': featureType, 'coordinates': mongoDBCoordinates }, 'name': feature['id'] }) #feature['properties']['BLOCKID10']
             print("Loaded %s %s of %s" % (featureType, feature['id'], len(theShp)))
-            mongoCollection.create_index([('geom', GEOSPHERE)])
+            mongoCollection.create_index( [("geom",GEOSPHERE)])
+            #if featureType == 'MultiPolygon': break
+            #mongoCollection.create_index([('geom', GEOSPHERE)])
 #                try:
 #                    #CreateIndex(mongoCollection)
                 #mongoR = mongoCollection.create_index([('geom', GEOSPHERE)])
@@ -133,13 +163,11 @@ with fiona.open(theShapeFilePath, 'r', crs=4326) as theShp:
             
         else:        
             print("Feature id %s is not valid" % (feature['id']))
-            
+            badGeoms.append(feature['id'])
         
-        if f == 3000:
-            break
             #mongoR = mongoCollection.create_index([('geom', GEOSPHERE)]) 
-        
     
+    print("Creating index")
     mongoCollection.create_index( [("geom",GEOSPHERE)])
             
         
