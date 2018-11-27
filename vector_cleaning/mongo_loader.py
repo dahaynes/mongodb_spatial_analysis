@@ -14,7 +14,7 @@ from pymongo.errors import WriteError
 import geopandas as gpd
 import psycopg2, shapely
 
-theShapeFilePath = r"C:\scidb\4326\tracts2.shp" #r"c:\work\shapefiles\tabblock2010_01_pophu.shp"  # r"C:\scidb\us_counties.shp"
+theShapeFilePath = r"C:\scidb\shapefiles\4326\tracts2.shp" #r"c:\work\shapefiles\tabblock2010_01_pophu.shp"  # r"C:\scidb\us_counties.shp"
 shapeDir, shapeFileName = os.path.split(theShapeFilePath)
 collectionName = shapeFileName.split('.')[0]
 
@@ -56,22 +56,38 @@ def CreateIndex(theCollection):
     theCollection.create_index([('geom', GEOSPHERE)])
     
     
+def CreateMongoPolygon(theFeature, ):
+    """
+    {
+     type : "Polygon",
+     coordinates : [
+             [ [ 0 , 0 ] , [ 3 , 6 ] , [ 6 , 1 ] , [ 0 , 0 ] ], #exterior ring
+             [ [ 2 , 2 ] , [ 3 , 3 ] , [ 4 , 2 ] , [ 2 , 2 ] ]  #interior ring
+        ]
+     }
+    """
+    
+
+    arrayCoordinates = []
+    dataset = [ list(pointpair) for pointpair in theFeature.exterior.coords ]
+        #ringCoordinates = [list(pointPair) for ring in theFeaturePoints for pointPair in ring]            
+    arrayCoordinates.append(dataset)
+    #Adding any interior polygons    
+    if list(theFeature.interiors):        
+        for interiorRings in list(theFeature.interiors):
+            rings = [ list(pointPair) for pointPair in interiorRings.coords ]
+            arrayCoordinates.append(rings)
+            
+    return(arrayCoordinates)
 
 
 mongoCon, mongoDB = CreateMongoConnection()
-#pgCon, pgCur = CreatPostgreSQLConnection()    
-#df = gpd.GeoDataFrame.from_postgis("SELECT gid, namelsad00, geom2 FROM tracts2", pgCon, geom_col='geom2' )
     
 with fiona.open(theShapeFilePath, 'r', crs=4326) as theShp:
     
     CreateMongoCollection(mongoCon, collectionName )
     mongoCollection  = mongoDB[collectionName]
-    badGeoms = []
-   
-#    for k, row in df.iterrows():
-#        featureGeom = shapely.wkb.loads(row.geom2.wkb_hex,hex=True)
-#        break
-        
+    badGeoms = []      
 
     for f, feature in enumerate(theShp):
         #theShp.validate_record_geometry(feature)
@@ -105,28 +121,30 @@ with fiona.open(theShapeFilePath, 'r', crs=4326) as theShp:
             #     [ [ 2 , 2 ] , [ 3 , 3 ] , [ 4 , 2 ] , [ 2 , 2 ] ]  #interior ring
             #  ]
             # }
+            
             if theFeature.is_valid and theFeature.exterior.is_closed and theFeature.exterior.is_valid:
-                mongoDBCoordinates = []
-#                if len(feature['geometry']['coordinates']) == 1:
-                dataset = [ list(pointpair) for pointpair in theFeature.exterior.coords ]
-                    #ringCoordinates = [list(pointPair) for ring in theFeaturePoints for pointPair in ring]
-                    #mongoDBCoordinates = [dataset]
-                    
-                mongoDBCoordinates.append(dataset)
-                if len(feature['geometry']['coordinates']) > 1:
-                
-                    
-                    for interiorRings in list(theFeature.interiors):
-                        rings = [ list(pointPair) for pointPair in interiorRings.coords ]
-                        mongoDBCoordinates.append(rings)
+                mongoCoordinates = CreateMongoPolygon(theFeature,)
+                insertData = True
+#                mongoDBCoordinates = []
+##                if len(feature['geometry']['coordinates']) == 1:
+#                dataset = [ list(pointpair) for pointpair in theFeature.exterior.coords ]
+#                    #ringCoordinates = [list(pointPair) for ring in theFeaturePoints for pointPair in ring]
+#                    #mongoDBCoordinates = [dataset]
+#                    
+#                mongoDBCoordinates.append(dataset)
+#                if list(theFeature.interiors):
+#                    break    
+#                    for interiorRings in list(theFeature.interiors):
+#                        rings = [ list(pointPair) for pointPair in interiorRings.coords ]
+#                        mongoDBCoordinates.append(rings)
 #                    for rings in theFeaturePoints:
 #                        coordinateArray = [ list(pointPair) for pointPair in rings] 
 #                        mongoDBCoordinates.append(coordinateArray)
                     
                     
-                insertData = True
+                
             
-        if featureType == 'MultiPolygon' and len(feature['geometry']['coordinates']) > 1:
+        if featureType == 'MultiPolygon' and len(theFeature.geoms) > 1:
             #   {
             #  type: "MultiPolygon",
             #  coordinates: [
@@ -134,22 +152,23 @@ with fiona.open(theShapeFilePath, 'r', crs=4326) as theShp:
             #     [ [ [ -73.958, 40.8003 ], [ -73.9498, 40.7968 ], [ -73.9737, 40.7648 ], [ -73.958, 40.8003 ] ] ]
             #  ]
             #}
-            #not covering the case with multipolygons that have interiors
-            mongoDBCoordinates = []
+
+            mongoCoordinates = []
             for aPolygon in theFeature.geoms:
                 if aPolygon.is_valid and aPolygon.exterior.is_closed and aPolygon.exterior.is_valid:   
-                    dataset = [ list(pointpair) for pointpair in aPolygon.exterior.coords ]
+                    polygonCoordinates = CreateMongoPolygon(aPolygon)
+                    #dataset = [ list(pointpair) for pointpair in aPolygon.exterior.coords ]
                     
 #                    for rings in theFeaturePoints:
 #                        coordinateArray = [ list(pointPair) for pointPair in rings] 
-                    mongoDBCoordinates.append([dataset])
+                    mongoCoordinates.append(polygonCoordinates)
                     insertData = True
             
                 
                     
                 
         if insertData:
-            mongoR = mongoCollection.insert_one({'geom': {'type': featureType, 'coordinates': mongoDBCoordinates }, 'name': feature['id'] }) #feature['properties']['BLOCKID10']
+            mongoR = mongoCollection.insert_one({'geom': {'type': featureType, 'coordinates': mongoCoordinates }, 'name': feature['id'] }) #feature['properties']['BLOCKID10']
             print("Loaded %s %s of %s" % (featureType, feature['id'], len(theShp)))
             mongoCollection.create_index( [("geom",GEOSPHERE)])
             #if featureType == 'MultiPolygon': break
