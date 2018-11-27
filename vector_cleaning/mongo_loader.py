@@ -19,14 +19,6 @@ shapeDir, shapeFileName = os.path.split(theShapeFilePath)
 collectionName = shapeFileName.split('.')[0]
 
 
-def CreatPostgreSQLConnection(theHost='localhost', theDB='research', thePort=5432, theUser='david'):
-    """
-    
-    """
-    con = psycopg2.connect(host=theHost, database=theDB, user=theUser, port=thePort)
-    cur = con.cursor()
-    
-    return(con,cur)
 
 def CreateMongoConnection(host='localhost', port=27017, db='research'):
     """
@@ -48,7 +40,7 @@ def CreateMongoCollection(theCon, collectionName ):
         mongoDB.drop_collection(collectionName)
     
     
-def CreateIndex(theCollection):
+def CreateSpatialIndex(theCollection):
     """
     
     """
@@ -81,8 +73,10 @@ def CreateMongoPolygon(theFeature, ):
     return(arrayCoordinates)
 
 
+
+
+
 mongoCon, mongoDB = CreateMongoConnection()
-    
 with fiona.open(theShapeFilePath, 'r', crs=4326) as theShp:
     
     CreateMongoCollection(mongoCon, collectionName )
@@ -90,12 +84,10 @@ with fiona.open(theShapeFilePath, 'r', crs=4326) as theShp:
     badGeoms = []      
 
     for f, feature in enumerate(theShp):
-        #theShp.validate_record_geometry(feature)
         featureType = feature['geometry']['type']
-        #print(featureType, len(feature['geometry']['coordinates']))
         theFeaturePoints = feature['geometry']['coordinates']
-        if featureType ==  "Polygon":
-            
+
+        if featureType ==  "Polygon":            
             if len(feature['geometry']['coordinates']) == 1:
                 #Single ring polygons
                 theFeature = Polygon(theFeaturePoints[0])
@@ -104,15 +96,11 @@ with fiona.open(theShapeFilePath, 'r', crs=4326) as theShp:
                 interiorRings = [inR for inR in feature['geometry']['coordinates'][1:] ]
                     
                 theFeature = Polygon(theFeaturePoints[0], holes=interiorRings )
-        
+        #This isn't the best
         else:
             listofPolygons  = [ Polygon(poly[0]) for poly in theFeaturePoints]
             theFeature = MultiPolygon(listofPolygons)
-            #print(featureType)
-#        
-##        # and theFeature.is_closed
-##        featureGeom.type
-##        featureGeom[0].exterior.coords
+
         if featureType == 'Polygon':
             #   {
             #  type : "Polygon",
@@ -125,24 +113,7 @@ with fiona.open(theShapeFilePath, 'r', crs=4326) as theShp:
             if theFeature.is_valid and theFeature.exterior.is_closed and theFeature.exterior.is_valid:
                 mongoCoordinates = CreateMongoPolygon(theFeature,)
                 insertData = True
-#                mongoDBCoordinates = []
-##                if len(feature['geometry']['coordinates']) == 1:
-#                dataset = [ list(pointpair) for pointpair in theFeature.exterior.coords ]
-#                    #ringCoordinates = [list(pointPair) for ring in theFeaturePoints for pointPair in ring]
-#                    #mongoDBCoordinates = [dataset]
-#                    
-#                mongoDBCoordinates.append(dataset)
-#                if list(theFeature.interiors):
-#                    break    
-#                    for interiorRings in list(theFeature.interiors):
-#                        rings = [ list(pointPair) for pointPair in interiorRings.coords ]
-#                        mongoDBCoordinates.append(rings)
-#                    for rings in theFeaturePoints:
-#                        coordinateArray = [ list(pointPair) for pointPair in rings] 
-#                        mongoDBCoordinates.append(coordinateArray)
-                    
-                    
-                
+
             
         if featureType == 'MultiPolygon' and len(theFeature.geoms) > 1:
             #   {
@@ -157,10 +128,6 @@ with fiona.open(theShapeFilePath, 'r', crs=4326) as theShp:
             for aPolygon in theFeature.geoms:
                 if aPolygon.is_valid and aPolygon.exterior.is_closed and aPolygon.exterior.is_valid:   
                     polygonCoordinates = CreateMongoPolygon(aPolygon)
-                    #dataset = [ list(pointpair) for pointpair in aPolygon.exterior.coords ]
-                    
-#                    for rings in theFeaturePoints:
-#                        coordinateArray = [ list(pointPair) for pointPair in rings] 
                     mongoCoordinates.append(polygonCoordinates)
                     insertData = True
             
@@ -169,16 +136,11 @@ with fiona.open(theShapeFilePath, 'r', crs=4326) as theShp:
                 
         if insertData:
             mongoR = mongoCollection.insert_one({'geom': {'type': featureType, 'coordinates': mongoCoordinates }, 'name': feature['id'] }) #feature['properties']['BLOCKID10']
-            print("Loaded %s %s of %s" % (featureType, feature['id'], len(theShp)))
-            mongoCollection.create_index( [("geom",GEOSPHERE)])
-            #if featureType == 'MultiPolygon': break
-            #mongoCollection.create_index([('geom', GEOSPHERE)])
-#                try:
-#                    #CreateIndex(mongoCollection)
-                #mongoR = mongoCollection.create_index([('geom', GEOSPHERE)])
-#                except WriteError as e:
-#                    print("removing")
-#                    mongoCollection.delete_one({'name': feature['properties']['BLOCKID10']})
+            #print("Loaded %s %s of %s" % (featureType, feature['id'], len(theShp)))
+            #mongoCollection.create_index( [("geom",GEOSPHERE)])
+            del mongoCoordinates
+            insertData = False
+
             
         else:        
             print("Feature id %s is not valid" % (feature['id']))
@@ -187,7 +149,8 @@ with fiona.open(theShapeFilePath, 'r', crs=4326) as theShp:
             #mongoR = mongoCollection.create_index([('geom', GEOSPHERE)]) 
     
     print("Creating index")
-    mongoCollection.create_index( [("geom",GEOSPHERE)])
+    CreateSpatialIndex(mongoCollection)
+    #mongoCollection.create_index( [("geom",GEOSPHERE)])
             
         
 print("Finished")            
