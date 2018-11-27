@@ -72,6 +72,18 @@ def CreateMongoPolygon(theFeature, ):
             
     return(arrayCoordinates)
 
+def progress(count, total, status=''):
+    """
+    Stolen from 
+    https://gist.github.com/vladignatyev/06860ec2040cb497f0f3
+    """
+    bar_len = 60
+    filled_len = int(round(bar_len * count / float(total)))
+
+    percents = round(100.1 * count / float(total), 1)
+    bar = '=' * filled_len + '-' * (bar_len - filled_len)
+
+    print('[%s] %s%s ...%s\r' % (bar, percents, '%', status))
 
 
 
@@ -137,6 +149,9 @@ with fiona.open(theShapeFilePath, 'r', crs=4326) as theShp:
         if insertData:
             mongoR = mongoCollection.insert_one({'geom': {'type': featureType, 'coordinates': mongoCoordinates }, 'name': feature['id'] }) #feature['properties']['BLOCKID10']
             #print("Loaded %s %s of %s" % (featureType, feature['id'], len(theShp)))
+            
+            if len(theShp) %(f+1):
+                progress(f+1, len(theShp), status='loading')
             #mongoCollection.create_index( [("geom",GEOSPHERE)])
             del mongoCoordinates
             insertData = False

@@ -7,7 +7,7 @@ California,06,CA
 Colorado,08,CO
 Connecticut,09,CT
 Delaware,10,DE
-D.C.,11,DC
+DC,11,DC
 Florida,12,FL
 Georgia,13,GA
 Hawaii,15,HI
