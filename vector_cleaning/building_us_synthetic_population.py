@@ -1,7 +1,8 @@
 # -*- coding: utf-8 -*-
 
 import csv, os
-import subprocess
+import subprocess, psycopg2
+
 
 fipsCodeFilePath = r"C:\scidb\mongodb_spatial_analysis\fips_codes.txt"
 syntheticFilesDir = r"E:\scidb_datasets\vector\synthetic_population"
@@ -45,6 +46,19 @@ def CreateTable(tableName):
     createStatement = """ psql -d research -U david -c "CREATE TABLE %s (sp_id bigint, serialno bigint, stcotrbg bigint, hh_race integer, hh_income float, hh_size integer, hh_age integer, latitude double precision, longitude double precision)" """ % (tableName)
     p = subprocess.Popen(createStatement, shell=True)
     p.wait()
+
+
+def AddGeometry(pgTable):
+    """
+    
+    """
+    pgCon = CreatePostgreSQLConnection()
+    pgCur = pgCon.cursor()
+    alterStatement = "ALTER TABLE %s ADD COLUMN geom geometry;" % (pgTable)
+    pgCur.execute(alterStatement )
+    createGeom = "UPDATE %s SET geom = ST_PointFromText('Point('|| longitude || ' ' || latitude || ')', 4326 );" % (pgTable) 
+    pgCur.execute(createGeom)
+    
     
     
 allFipsCodes = GetFIPS(fipsCodeFilePath)
@@ -61,7 +75,7 @@ for tableName, fileIdentifier in tableNames:
             p = subprocess.Popen(loadStatement, shell=True)
             p.wait()
             
-    
+AddGeometry(tableNames[0][0])    
     
 #    with open(s, 'r') as fin:
 #        theCSV = csv.DictReader(fin, delimiter=",")

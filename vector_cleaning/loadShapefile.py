@@ -57,9 +57,10 @@ def VerifyTopology(theFIPS):
     """
     Function for modifying the topoloyg
     """
-    try:
-        pgCon = CreatePostgreSQLConnection()
-        with pgCon:
+    
+    pgCon = CreatePostgreSQLConnection()
+    with pgCon:
+        try:
             cur = pgCon.cursor()
             for fip in theFIPS:
                 theFIPS[fip]
@@ -78,10 +79,11 @@ def VerifyTopology(theFIPS):
                 """.format(**allFipsCodes[fip])
                 print("Validating and Modifying table %s" % (theFIPS[fip]['name']))
                 cur.execute(query.replace("\n", "").replace(";", "; "))
-            
-    finally:
-        pgCon.close()
-    
+                pgCon.commit()
+                
+        except:
+            pgCon.close()
+
 
 #### SET PARAMETERS #####
 fipsCodeFilePath = r"C:\scidb\mongodb_spatial_analysis\fips_codes.txt"
