@@ -14,9 +14,7 @@ from pymongo.errors import WriteError
 import geopandas as gpd
 import psycopg2, shapely
 
-theShapeFilePath = r"C:\scidb\shapefiles\4326\tracts2.shp" #r"c:\work\shapefiles\tabblock2010_01_pophu.shp"  # r"C:\scidb\us_counties.shp"
-shapeDir, shapeFileName = os.path.split(theShapeFilePath)
-collectionName = shapeFileName.split('.')[0]
+
 
 
 
@@ -47,7 +45,14 @@ def CreateSpatialIndex(theCollection):
     
     theCollection.create_index([('geom', GEOSPHERE)])
     
+def CreateMonogPoint(theCoordinates):
+    """
     
+    { type: "Point", coordinates: [ 40, 5 ] }
+    
+    """
+    return(list(theCoordinates))
+
 def CreateMongoPolygon(theFeature, ):
     """
     {
@@ -88,6 +93,15 @@ def progress(count, total, status=''):
 
 
 
+
+
+theShapeFilePath = r"C:\scidb\shapefiles\4326\tracts2.shp" #r"c:\work\shapefiles\tabblock2010_01_pophu.shp"  # r"C:\scidb\us_counties.shp"
+theShapeFilePath = r"C:\aging\mn_facilities_2.shp"
+shapeDir, shapeFileName = os.path.split(theShapeFilePath)
+collectionName = shapeFileName.split('.')[0]
+
+
+
 mongoCon, mongoDB = CreateMongoConnection()
 with fiona.open(theShapeFilePath, 'r', crs=4326) as theShp:
     
@@ -105,44 +119,46 @@ with fiona.open(theShapeFilePath, 'r', crs=4326) as theShp:
                 theFeature = Polygon(theFeaturePoints[0])
             else:
                 #Single ring polygons with interior rings
-                interiorRings = [inR for inR in feature['geometry']['coordinates'][1:] ]
-                    
+                interiorRings = [inR for inR in feature['geometry']['coordinates'][1:] ]                    
                 theFeature = Polygon(theFeaturePoints[0], holes=interiorRings )
-        #This isn't the best
-        else:
-            listofPolygons  = [ Polygon(poly[0]) for poly in theFeaturePoints]
-            theFeature = MultiPolygon(listofPolygons)
-
-        if featureType == 'Polygon':
-            #   {
-            #  type : "Polygon",
-            #  coordinates : [
-            #     [ [ 0 , 0 ] , [ 3 , 6 ] , [ 6 , 1 ] , [ 0 , 0 ] ], #exterior ring
-            #     [ [ 2 , 2 ] , [ 3 , 3 ] , [ 4 , 2 ] , [ 2 , 2 ] ]  #interior ring
-            #  ]
-            # }
             
             if theFeature.is_valid and theFeature.exterior.is_closed and theFeature.exterior.is_valid:
-                mongoCoordinates = CreateMongoPolygon(theFeature,)
+                mongoCoordinates = CreateMongoPolygon(theFeature)
                 insertData = True
-
+        
+        
+        elif featureType == 'MultiPolygon':
+            #This isn't the best way to make the shapely multipolygon
+            listofPolygons  = [ Polygon(poly[0]) for poly in theFeaturePoints]
+            theFeature = MultiPolygon(listofPolygons)
             
-        if featureType == 'MultiPolygon' and len(theFeature.geoms) > 1:
-            #   {
-            #  type: "MultiPolygon",
-            #  coordinates: [
-            #     [ [ [ -73.958, 40.8003 ], [ -73.9498, 40.7968 ], [ -73.9737, 40.7648 ], [ -73.9814, 40.7681 ], [ -73.958, 40.8003 ] ] ],
-            #     [ [ [ -73.958, 40.8003 ], [ -73.9498, 40.7968 ], [ -73.9737, 40.7648 ], [ -73.958, 40.8003 ] ] ]
-            #  ]
-            #}
-
             mongoCoordinates = []
             for aPolygon in theFeature.geoms:
                 if aPolygon.is_valid and aPolygon.exterior.is_closed and aPolygon.exterior.is_valid:   
                     polygonCoordinates = CreateMongoPolygon(aPolygon)
                     mongoCoordinates.append(polygonCoordinates)
                     insertData = True
+                    
+        elif featureType == "Point":
+            #{ type: "Point", coordinates: [ 40, 5 ] }
+            mongoCoordinates = CreateMonogPoint(theFeaturePoints)
             
+        elif featureType == "MultiPoint":
+            #{
+            #  type: "MultiPoint",
+            #  coordinates: [
+            #     [ -73.9580, 40.8003 ],
+            #     [ -73.9498, 40.7968 ],
+            #     [ -73.9737, 40.7648 ],
+            #     [ -73.9814, 40.7681 ]
+            #  ]
+            #}
+            pass
+        
+        
+
+
+           
                 
                     
                 
