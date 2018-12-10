@@ -1,6 +1,5 @@
 StateName,fips,Abbreviation
 Alabama,01,AL
-Alaska,02,AK
 Arizona,04,AZ
 Arkansas,05,AR
 California,06,CA
