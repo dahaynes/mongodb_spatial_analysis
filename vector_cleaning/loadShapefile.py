@@ -2,7 +2,7 @@
 
 
 import os, psycopg2, csv
-import subprocess
+import subprocess, geopandas
 
 def GetFIPS(theFilePath):
     """
@@ -65,24 +65,30 @@ def VerifyTopology(theFIPS):
             for fip in theFIPS:
                 theFIPS[fip]
                 query = """
-                ALTER TABLE big_vector.{name} ADD COLUMN valid varchar(4);
-
                 UPDATE big_vector.{name}
                 SET valid = ST_IsValid(geom);
                 
                 UPDATE big_vector.{name}
-                SET geom = ST_MakeValid(geom)
+                SET geom = ST_CollectionExtract(ST_MakeValid(geom),3)
                 WHERE ST_ISValid(geom) IS NOT TRUE;
                 
                 UPDATE big_vector.{name}
                 SET valid = ST_IsValid(geom);
                 """.format(**allFipsCodes[fip])
                 print("Validating and Modifying table %s" % (theFIPS[fip]['name']))
+                
+                #print(query)
                 cur.execute(query.replace("\n", "").replace(";", "; "))
                 pgCon.commit()
+                sqlQuery = """SELECT gid, statefp10, countyfp10, tractce10, blockce blockid10, geom FROM big_vector.%s; """ % (theFIPS[fip]['name'])
+                shpFilePath = r"E:\scidb_datasets\vector\us_blocks\%s.shp" % (theFIPS[fip]['name'])
+                print(sqlQuery)
+                df = geopandas.GeoDataFrame.from_postgis(sqlQuery, pgCon, geom_col='geom' )  
+                df.to_file(driver="ESRI Shapefile", filename=shpFilePath)    
                 
-        except:
-            pgCon.close()
+        except Exception as e:
+            print("Error", e)
+            #pgCon.close()
 
 
 #### SET PARAMETERS #####
@@ -109,10 +115,10 @@ try:
         #allFipsCodes[theKey]
         
         featureDataset = allFipsCodes[theKey]['name']
-        LoadToPostGreSQL(shapeFilePath, featureDataset)
+        #LoadToPostGreSQL(shapeFilePath, featureDataset)
             
 except:
-    print("Error")
+    print("Something... errored")
 
 VerifyTopology(allFipsCodes)
 

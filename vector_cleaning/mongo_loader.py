@@ -95,8 +95,8 @@ def progress(count, total, status=''):
 
 
 
-theShapeFilePath = r"C:\scidb\shapefiles\4326\tracts2.shp" #r"c:\work\shapefiles\tabblock2010_01_pophu.shp"  # r"C:\scidb\us_counties.shp"
-theShapeFilePath = r"C:\aging\mn_facilities_2.shp"
+theShapeFilePath = r"E:\scidb_datasets\vector\randpoints_50m.shp" #r"C:\scidb\shapefiles\4326\tracts2.shp" #r"c:\work\shapefiles\tabblock2010_01_pophu.shp"  # r"C:\scidb\us_counties.shp"
+#theShapeFilePath = r"C:\aging\mn_facilities_2.shp"
 shapeDir, shapeFileName = os.path.split(theShapeFilePath)
 collectionName = shapeFileName.split('.')[0]
 
@@ -142,6 +142,7 @@ with fiona.open(theShapeFilePath, 'r', crs=4326) as theShp:
         elif featureType == "Point":
             #{ type: "Point", coordinates: [ 40, 5 ] }
             mongoCoordinates = CreateMonogPoint(theFeaturePoints)
+            insertData = True
             
         elif featureType == "MultiPoint":
             #{
