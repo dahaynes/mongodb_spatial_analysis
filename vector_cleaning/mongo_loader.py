@@ -7,12 +7,13 @@ This script loads shapefiles into MongoDB
 
 
 #from osgeo import ogr
+#import geopandas as gpd
+#import psycopg2, shapely
 import fiona, os
 from shapely.geometry import *
 from pymongo import MongoClient, GEOSPHERE
 from pymongo.errors import WriteError
-import geopandas as gpd
-import psycopg2, shapely
+
 
 
 
@@ -33,9 +34,9 @@ def CreateMongoCollection(theCon, collectionName ):
         Mongo Dabase Connection
         Collection Name
     """
-    if collectionName in mongoDB.list_collection_names():
+    if collectionName in theCon.list_collection_names():
         print("Found Existing collection with same name %s \n Dropping old collection" % (collectionName))
-        mongoDB.drop_collection(collectionName)
+        theCon.drop_collection(collectionName)
     
     
 def CreateSpatialIndex(theCollection):
@@ -91,98 +92,96 @@ def progress(count, total, status=''):
     print('[%s] %s%s ...%s\r' % (bar, percents, '%', status))
 
 
-
-
-
-
-theShapeFilePath = r"E:\scidb_datasets\vector\randpoints_50m.shp" #r"C:\scidb\shapefiles\4326\tracts2.shp" #r"c:\work\shapefiles\tabblock2010_01_pophu.shp"  # r"C:\scidb\us_counties.shp"
-#theShapeFilePath = r"C:\aging\mn_facilities_2.shp"
-shapeDir, shapeFileName = os.path.split(theShapeFilePath)
-collectionName = shapeFileName.split('.')[0]
-
-
-
-mongoCon, mongoDB = CreateMongoConnection()
-with fiona.open(theShapeFilePath, 'r', crs=4326) as theShp:
+def LoadShapefile(inFile, collectionName,srid=4326):
+    """
     
-    CreateMongoCollection(mongoCon, collectionName )
-    mongoCollection  = mongoDB[collectionName]
-    badGeoms = []      
-
-    for f, feature in enumerate(theShp):
-        featureType = feature['geometry']['type']
-        theFeaturePoints = feature['geometry']['coordinates']
-
-        if featureType ==  "Polygon":            
-            if len(feature['geometry']['coordinates']) == 1:
-                #Single ring polygons
-                theFeature = Polygon(theFeaturePoints[0])
-            else:
-                #Single ring polygons with interior rings
-                interiorRings = [inR for inR in feature['geometry']['coordinates'][1:] ]                    
-                theFeature = Polygon(theFeaturePoints[0], holes=interiorRings )
-            
-            if theFeature.is_valid and theFeature.exterior.is_closed and theFeature.exterior.is_valid:
-                mongoCoordinates = CreateMongoPolygon(theFeature)
-                insertData = True
+    """
+    mongoCon, mongoDB = CreateMongoConnection()
+    shapeDir, shapeFileName = os.path.split(inFile)
+    with fiona.open(fileIn, 'r', crs=srid) as theShp:
         
-        
-        elif featureType == 'MultiPolygon':
-            #This isn't the best way to make the shapely multipolygon
-            listofPolygons  = [ Polygon(poly[0]) for poly in theFeaturePoints]
-            theFeature = MultiPolygon(listofPolygons)
-            
-            mongoCoordinates = []
-            for aPolygon in theFeature.geoms:
-                if aPolygon.is_valid and aPolygon.exterior.is_closed and aPolygon.exterior.is_valid:   
-                    polygonCoordinates = CreateMongoPolygon(aPolygon)
-                    mongoCoordinates.append(polygonCoordinates)
+        CreateMongoCollection(mongoDB, collectionName )
+        mongoCollection  = mongoDB[collectionName]
+        badGeoms = []      
+    
+        for f, feature in enumerate(theShp):
+            featureType = feature['geometry']['type']
+            theFeaturePoints = feature['geometry']['coordinates']
+    
+            if featureType ==  "Polygon":            
+                if len(feature['geometry']['coordinates']) == 1:
+                    #Single ring polygons
+                    theFeature = Polygon(theFeaturePoints[0])
+                else:
+                    #Single ring polygons with interior rings
+                    interiorRings = [inR for inR in feature['geometry']['coordinates'][1:] ]                    
+                    theFeature = Polygon(theFeaturePoints[0], holes=interiorRings )
+                
+                if theFeature.is_valid and theFeature.exterior.is_closed and theFeature.exterior.is_valid:
+                    mongoCoordinates = CreateMongoPolygon(theFeature)
                     insertData = True
-                    
-        elif featureType == "Point":
-            #{ type: "Point", coordinates: [ 40, 5 ] }
-            mongoCoordinates = CreateMonogPoint(theFeaturePoints)
-            insertData = True
             
-        elif featureType == "MultiPoint":
-            #{
-            #  type: "MultiPoint",
-            #  coordinates: [
-            #     [ -73.9580, 40.8003 ],
-            #     [ -73.9498, 40.7968 ],
-            #     [ -73.9737, 40.7648 ],
-            #     [ -73.9814, 40.7681 ]
-            #  ]
-            #}
-            pass
-        
-        
-
-
-           
+            
+            elif featureType == 'MultiPolygon':
+                #This isn't the best way to make the shapely multipolygon
+                listofPolygons  = [ Polygon(poly[0]) for poly in theFeaturePoints]
+                theFeature = MultiPolygon(listofPolygons)
                 
-                    
+                mongoCoordinates = []
+                for aPolygon in theFeature.geoms:
+                    if aPolygon.is_valid and aPolygon.exterior.is_closed and aPolygon.exterior.is_valid:   
+                        polygonCoordinates = CreateMongoPolygon(aPolygon)
+                        mongoCoordinates.append(polygonCoordinates)
+                        insertData = True
+                        
+            elif featureType == "Point":
+                #{ type: "Point", coordinates: [ 40, 5 ] }
+                mongoCoordinates = CreateMonogPoint(theFeaturePoints)
+                insertData = True
                 
-        if insertData:
-            mongoR = mongoCollection.insert_one({'geom': {'type': featureType, 'coordinates': mongoCoordinates }, 'name': feature['id'] }) #feature['properties']['BLOCKID10']
-            #print("Loaded %s %s of %s" % (featureType, feature['id'], len(theShp)))
+            elif featureType == "MultiPoint":
+                #{
+                #  type: "MultiPoint",
+                #  coordinates: [
+                #     [ -73.9580, 40.8003 ],
+                #     [ -73.9498, 40.7968 ],
+                #     [ -73.9737, 40.7648 ],
+                #     [ -73.9814, 40.7681 ]
+                #  ]
+                #}
+                pass
             
-            if len(theShp) %(f+1):
-                progress(f+1, len(theShp), status='loading')
-            #mongoCollection.create_index( [("geom",GEOSPHERE)])
-            del mongoCoordinates
-            insertData = False
 
-            
-        else:        
-            print("Feature id %s is not valid" % (feature['id']))
-            badGeoms.append(feature['id'])
-        
-            #mongoR = mongoCollection.create_index([('geom', GEOSPHERE)]) 
+            if insertData:
+                mongoR = mongoCollection.insert_one({'geom': {'type': featureType, 'coordinates': mongoCoordinates }, 'name': feature['id'], 'properties': feature['properties'] }) #feature['properties']['BLOCKID10']
+                #print("Loaded %s %s of %s" % (featureType, feature['id'], len(theShp)))
+                
+                if len(theShp) %(f+1):
+                    progress(f+1, len(theShp), status='loading')
+                #mongoCollection.create_index( [("geom",GEOSPHERE)])
+                del mongoCoordinates
+                insertData = False
     
-    print("Creating index")
-    CreateSpatialIndex(mongoCollection)
+                
+            else:        
+                print("Feature id %s is not valid" % (feature['id']))
+                badGeoms.append(feature['id'])
+            
+                #mongoR = mongoCollection.create_index([('geom', GEOSPHERE)]) 
+        
+        print("Creating index")
+        CreateSpatialIndex(mongoCollection)
     #mongoCollection.create_index( [("geom",GEOSPHERE)])
+
+
+
+fileIn = r"/media/sf_data/scidb_datasets/vector/states_hash.shp"
+#theShapeFilePath = r"E:\scidb_datasets\vector\randpoints_50m.shp" #r"C:\scidb\shapefiles\4326\tracts2.shp" #r"c:\work\shapefiles\tabblock2010_01_pophu.shp"  # r"C:\scidb\us_counties.shp"
+#theShapeFilePath = r"C:\aging\mn_facilities_2.shp"
+#collectionName = shapeFileName.split('.')[0]
+
+LoadShapefile(fileIn, "states_hash",)
+
             
         
 print("Finished")            
