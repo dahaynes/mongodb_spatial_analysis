@@ -38,8 +38,8 @@ def GetAttributes(inFilePath, CRS=4326):
 
 
 
-theShapefilePath = r"E:\scidb_datasets\vector\states_hash.shp"
-outTextFile = r"E:\scidb_datasets\vector\states.txt"
+theShapefilePath = r"E:\scidb_datasets\vector\randpoints_50m.shp"
+outTextFile = r"E:\scidb_datasets\vector\randompoint_50million.txt"
 
 attributes = GetAttributes(theShapefilePath)
 ogrDriver = ogr.GetDriverByName("ESRI Shapefile")
