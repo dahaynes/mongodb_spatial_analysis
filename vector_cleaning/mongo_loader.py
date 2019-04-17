@@ -18,12 +18,13 @@ from pymongo.errors import WriteError
 
 
 
-
 def CreateMongoConnection(host='localhost', port=27017, db='research'):
     """
-    
+    host=['localhost:27017']
     """
-    connection = MongoClient(host, port)
+    connString ="%s:%s" % (host, port)
+    print(connString)
+    connection = MongoClient(connString) #host
     theDB = connection[db]
         
     return(connection, theDB)
@@ -96,11 +97,11 @@ def LoadShapefile(inFile, collectionName,srid=4326):
     """
     
     """
-    mongoCon, mongoDB = CreateMongoConnection()
+    mongoCon, mongoDB = CreateMongoConnection(host='localhost', port=27011)
     shapeDir, shapeFileName = os.path.split(inFile)
     with fiona.open(fileIn, 'r', crs=srid) as theShp:
         
-        CreateMongoCollection(mongoDB, collectionName )
+        #CreateMongoCollection(mongoDB, collectionName )
         mongoCollection  = mongoDB[collectionName]
         badGeoms = []      
     
@@ -153,7 +154,9 @@ def LoadShapefile(inFile, collectionName,srid=4326):
             
 
             if insertData:
-                mongoR = mongoCollection.insert_one({'geom': {'type': featureType, 'coordinates': mongoCoordinates }, 'name': feature['id'], 'properties': feature['properties'] }) #feature['properties']['BLOCKID10']
+                print(feature['properties'])
+                mongoR = mongoCollection.insert_one({'name':'dog'})
+                #mongoR = mongoCollection.insert_one({'geom': {'type': featureType, 'coordinates': mongoCoordinates }  }) #'properties': feature['properties'] feature['properties']['BLOCKID10']
                 #print("Loaded %s %s of %s" % (featureType, feature['id'], len(theShp)))
                 
                 if len(theShp) %(f+1):
@@ -174,22 +177,33 @@ def LoadShapefile(inFile, collectionName,srid=4326):
     #mongoCollection.create_index( [("geom",GEOSPHERE)])
 
 
+def argument_parser():
+    """
+    Parse arguments and return Arguments
+    """
+    import argparse
 
-fileIn = r"/media/sf_data/scidb_datasets/vector/states_hash.shp"
-#theShapeFilePath = r"E:\scidb_datasets\vector\randpoints_50m.shp" #r"C:\scidb\shapefiles\4326\tracts2.shp" #r"c:\work\shapefiles\tabblock2010_01_pophu.shp"  # r"C:\scidb\us_counties.shp"
-#theShapeFilePath = r"C:\aging\mn_facilities_2.shp"
-#collectionName = shapeFileName.split('.')[0]
+    parser = argparse.ArgumentParser(description= "Module for loading geometry data into MongoDB")    
+    
+    parser.add_argument("-s", required=True, help="Input file path for the shapefile", dest="shapefilePath")    
+    parser.add_argument("-c", required=False, type=text, help="Name of MongoDB collection", dest="collectionName")
+    
 
-LoadShapefile(fileIn, "states_hash",)
-
-            
+    return parser
         
-print("Finished")            
+if __name__ == '__main__':
+    args = argument_parser().parse_args()
+    start = timeit.default_timer()      
+    
+    fileIn = args.shapefilePath
+    if not args.collectionName: 
+        directory, shapeFileName = os.path.split(fileIn)
+        collectionName = shapeFileName.split('.')[0]
+        LoadShapefile(fileIn, collectionName)
+    else:
+        collectionName = args.collectionName
+        LoadShapefile(fileIn, collectionName)
+           
             
-#vectorFile = ogr.Open(theShapeFilePath)
-#layer = vectorFile.GetLayer()
-#for feature in layer:
-#    featureWKT = feature.geometry().ExportToWkt()
-#    print(featureWKT)
-#    
-#    break
+    print("Finished")            
+            

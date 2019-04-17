@@ -28,7 +28,7 @@ def LoadShapeFile(theShpPath, db, theCollection, SRID=4326):
 
     """    
     import csv
-    with fiona.open(myShpPath, 'r', crs=SRID) as theShp, open(r"c:\work\mongoErrors2.csv", 'w', newline='\n') as fout:
+    with fiona.open(myShpPath, 'r', crs=SRID) as theShp, open(r"/media/sf_data/mongoErrors2.csv", 'w', newline='\n') as fout:
         
         if theCollection in mongoDB.list_collection_names():
             print("Found Existing collection with same name %s \n Dropping old collection" % (theCollection))
@@ -74,13 +74,30 @@ def LoadShapeFile(theShpPath, db, theCollection, SRID=4326):
         #mongoCollection.create_index([('coordinates', pymongo.GEOSPHERE)])
             
         
+def argument_parser():
+    """
+    Parse arguments and return Arguments
+    """
+    import argparse
+
+    parser = argparse.ArgumentParser(description= "Module for loading geometry data into MongoDB")    
+    
+    parser.add_argument("-s", required=True, help="Input file path for the shapefile", dest="shapefilePath")    
+    parser.add_argument("-c", required=False, type=text, help="Name of MongoDB collection", dest="collectionName")
+    
+
+
+    return parser
         
-            
-myShpPath = r"C:\scidb\us_counties.shp" #r"C:\scidb\mn_county_boundaries.shp" #r"C:\scidb\shapefiles\4326\counties.shp"
-directory, shapeFileName = os.path.split(myShpPath)
-collectionName = shapeFileName.split('.')[0]
+if __name__ == '__main__':
+    args = argument_parser().parse_args()
+    start = timeit.default_timer()      
+    myShpPath = args.shapefilePath
+    directory, shapeFileName = os.path.split(myShpPath)
+    collectionName = shapeFileName.split('.')[0]
 
-con, mongoDB = CreateMongoConnection()
-LoadShapeFile(myShpPath, mongoDB, collectionName)
+    con, mongoDB = CreateMongoConnection(port=27011)
+    LoadShapeFile(myShpPath, mongoDB, collectionName)
+    del con, mongoDB
 
-#mongoDB.list_collection_names()
+    #mongoDB.list_collection_names()
