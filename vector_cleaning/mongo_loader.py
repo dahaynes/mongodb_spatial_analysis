@@ -11,7 +11,7 @@ This script loads shapefiles into MongoDB
 #import psycopg2, shapely
 import fiona, os
 from shapely.geometry import *
-from pymongo import MongoClient, GEOSPHERE
+from pymongo import MongoClient, GEOSPHERE, HASHED
 from pymongo.errors import WriteError
 import timeit
 
@@ -47,7 +47,14 @@ def CreateSpatialIndex(theCollection):
     """
     
     theCollection.create_index([('geom', GEOSPHERE)])
+
+def CreatGeoHashedIndex(theCollection, hashKey):
+    """
     
+    """
+    
+    theCollection.create_index([(hashKey, HASHED)])
+
 def CreateMonogPoint(theCoordinates):
     """
     
@@ -94,15 +101,15 @@ def progress(count, total, status=''):
     print('[%s] %s%s ...%s\r' % (bar, percents, '%', status))
 
 
-def LoadShapefile(inFile, collectionName,mongoPort,srid=4326):
+def LoadShapefile(inFile, collectionName, mongoPort, shardkey=None, srid=4326):
     """
-    
+    Function for loading a shapefile
     """
     mongoCon, mongoDB = CreateMongoConnection(host='localhost', port=mongoPort)
     shapeDir, shapeFileName = os.path.split(inFile)
     with fiona.open(fileIn, 'r', crs=srid) as theShp:
         
-        #CreateMongoCollection(mongoDB, collectionName )
+        CreateMongoCollection(mongoDB, collectionName )
         mongoCollection  = mongoDB[collectionName]
         badGeoms = []      
     
@@ -155,9 +162,11 @@ def LoadShapefile(inFile, collectionName,mongoPort,srid=4326):
             
 
             if insertData:
-                print(feature['properties'])
-                mongoR = mongoCollection.insert_one({'name':'dog'})
-                #mongoR = mongoCollection.insert_one({'geom': {'type': featureType, 'coordinates': mongoCoordinates }  }) #'properties': feature['properties'] feature['properties']['BLOCKID10']
+                
+                mongoDocument = {'geom': {'type': featureType, 'coordinates': mongoCoordinates }  }
+                mongoDocument.update(feature['properties'])
+                
+                mongoR = mongoCollection.insert_one(mongoDocument) #'properties': feature['properties'] feature['properties']['BLOCKID10']
                 #print("Loaded %s %s of %s" % (featureType, feature['id'], len(theShp)))
                 
                 if len(theShp) %(f+1):
@@ -171,11 +180,19 @@ def LoadShapefile(inFile, collectionName,mongoPort,srid=4326):
                 print("Feature id %s is not valid" % (feature['id']))
                 badGeoms.append(feature['id'])
             
-                #mongoR = mongoCollection.create_index([('geom', GEOSPHERE)]) 
+                
         
-        print("Creating index")
+        print("Creating Spatial Index")
         CreateSpatialIndex(mongoCollection)
-    #mongoCollection.create_index( [("geom",GEOSPHERE)])
+        
+        if shardkey:
+            print("Sharding collection by key: %s" % (shardkey))
+            CreatGeoHashedIndex(mongoCollection, shardkey)
+            databaseMongoCollectionName = "%s.%s" % ("research", mongoCollection)
+            #mongoDB.admin.c
+            #This command is still failing
+            #mongoDB.admin.command('shardCollection', databaseMongoCollectionName, key={shardkey: "hashed"})
+        
 
 
 def argument_parser():
@@ -187,8 +204,9 @@ def argument_parser():
     parser = argparse.ArgumentParser(description= "Module for loading geometry data into MongoDB")    
     
     parser.add_argument("-s", required=True, help="Input file path for the shapefile", dest="shapefilePath")    
-    parser.add_argument("-c", required=False, type=str, help="Name of MongoDB collection", dest="collectionName")
     parser.add_argument("-p", required=True, type=int, help="port number of mongo", dest="port")   
+    parser.add_argument("-c", required=False, type=str, help="Name of MongoDB collection", dest="collectionName")
+    parser.add_argument("-f", required=False, type=str, help="Field Name for sharded collection", dest="shardKey")
 
     return parser
         
@@ -204,7 +222,7 @@ if __name__ == '__main__':
     else:
         collectionName = args.collectionName
 
-    LoadShapefile(fileIn, collectionName,args.port)
+    LoadShapefile(fileIn, collectionName, args.port, args.shardKey)
            
             
     print("Finished")            
