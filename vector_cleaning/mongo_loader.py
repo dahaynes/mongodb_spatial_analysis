@@ -13,6 +13,7 @@ import fiona, os
 from shapely.geometry import *
 from pymongo import MongoClient, GEOSPHERE
 from pymongo.errors import WriteError
+import timeit
 
 
 
@@ -93,11 +94,11 @@ def progress(count, total, status=''):
     print('[%s] %s%s ...%s\r' % (bar, percents, '%', status))
 
 
-def LoadShapefile(inFile, collectionName,srid=4326):
+def LoadShapefile(inFile, collectionName,mongoPort,srid=4326):
     """
     
     """
-    mongoCon, mongoDB = CreateMongoConnection(host='localhost', port=27011)
+    mongoCon, mongoDB = CreateMongoConnection(host='localhost', port=mongoPort)
     shapeDir, shapeFileName = os.path.split(inFile)
     with fiona.open(fileIn, 'r', crs=srid) as theShp:
         
@@ -186,8 +187,8 @@ def argument_parser():
     parser = argparse.ArgumentParser(description= "Module for loading geometry data into MongoDB")    
     
     parser.add_argument("-s", required=True, help="Input file path for the shapefile", dest="shapefilePath")    
-    parser.add_argument("-c", required=False, type=text, help="Name of MongoDB collection", dest="collectionName")
-    
+    parser.add_argument("-c", required=False, type=str, help="Name of MongoDB collection", dest="collectionName")
+    parser.add_argument("-p", required=True, type=int, help="port number of mongo", dest="port")   
 
     return parser
         
@@ -199,10 +200,11 @@ if __name__ == '__main__':
     if not args.collectionName: 
         directory, shapeFileName = os.path.split(fileIn)
         collectionName = shapeFileName.split('.')[0]
-        LoadShapefile(fileIn, collectionName)
+        #LoadShapefile(fileIn, collectionName)
     else:
         collectionName = args.collectionName
-        LoadShapefile(fileIn, collectionName)
+
+    LoadShapefile(fileIn, collectionName,args.port)
            
             
     print("Finished")            
