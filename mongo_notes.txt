@@ -1,0 +1,213 @@
+sudo mongod --configsvr --bind_ip localhost --port 27019 --fork --replSet configServer --dbpath /data/head_node --logpath /data/head_node.log
+
+## worked 
+mongo --port 27019 --eval 'rs.initiate({ _id: "configServer", configsvr: true,    members: [ { _id : 0, host : "localhost:27019" } ] })'
+
+## worked --- output below ---
+dhaynes@js-171-244:/data$ mongo --port 27019 --eval 'rs.initiate({
+ _id: "configServer", configsvr: true,    members: [ { _id : 0, ho
+st : "localhost:27019" } ] })'
+MongoDB shell version v4.0.9
+connecting to: mongodb://127.0.0.1:27019/?gssapiServiceName=mongod
+
+Implicit session: session { "id" : UUID("2896538b-1127-4604-97da-c
+7807e9fdc39") }
+MongoDB server version: 4.0.9
+{
+"ok" : 1,
+"operationTime" : Timestamp(1555728781, 1),
+"$gleStats" : {
+"lastOpTime" : Timestamp(1555728781, 1),
+"electionId" : ObjectId("000000000000000000000000"
+)
+},
+"lastCommittedOpTime" : Timestamp(0, 0),
+"$clusterTime" : {
+"clusterTime" : Timestamp(1555728781, 1),
+"signature" : {
+"hash" : BinData(0,"AAAAAAAAAAAAAAAAAAAAAA
+AAAAA="),
+"keyId" : NumberLong(0)
+}
+}
+}
+
+sudo mongod --shardsvr  --bind_ip localhost --dbpath /data/mongo_node1 --port 27001 --fork --logpath /data/node1.log
+sudo mongod --shardsvr  --bind_ip localhost --dbpath /data/mongo_node2 --port 27002 --fork --logpath /data/node2.log
+sudo mongod --shardsvr  --bind_ip localhost --dbpath /data/mongo_node3 --port 27003 --fork --logpath /data/node3.log
+sudo mongod --shardsvr  --bind_ip localhost --dbpath /data/mongo_node4 --port 27004 --fork --logpath /data/node4.log
+sudo mongod --shardsvr  --bind_ip localhost --dbpath /data/mongo_node5 --port 27005 --fork --logpath /data/node5.log
+sudo mongod --shardsvr  --bind_ip localhost --dbpath /data/mongo_node6 --port 27006 --fork --logpath /data/node6.log
+sudo mongod --shardsvr  --bind_ip localhost --dbpath /data/mongo_node7 --port 27007 --fork --logpath /data/node7.log
+sudo mongod --shardsvr  --bind_ip localhost --dbpath /data/mongo_node8 --port 27008 --fork --logpath /data/node8.log
+sudo mongod --shardsvr  --bind_ip localhost --dbpath /data/mongo_node9 --port 27009 --fork --logpath /data/node9.log
+sudo mongod --shardsvr  --bind_ip localhost --dbpath /data/mongo_node10 --port 27010 --fork --logpath /data/node10.log
+sudo mongod --shardsvr  --bind_ip localhost --dbpath /data/mongo_node11 --port 27011 --fork --logpath /data/node11.log
+sudo mongod --shardsvr  --bind_ip localhost --dbpath /data/mongo_node12 --port 27012 --fork --logpath /data/node12.log
+
+
+sudo mongos --configdb configServer/localhost:27019  --logappend --logpath /data/log.mongos --port 27020 --fork
+### this command worked. 
+
+#Start Mongos
+mongo --port 27020
+## Execute these commands.
+mongos> sh.status()
+--- Sharding Status --- 
+  sharding version: {
+  "_id" : 1,
+  "minCompatibleVersion" : 5,
+  "currentVersion" : 6,
+  "clusterId" : ObjectId("5cba898fcee52004346484bb")
+  }
+  shards:
+  active mongoses:
+  autosplit:
+        Currently enabled: yes
+  balancer:
+        Currently enabled:  yes
+        Currently running:  no
+        Failed balancer rounds in last 5 attempts:  0
+        Migration Results for the last 24 hours: 
+                No recent migrations
+  databases:
+        {  "_id" : "config",  "primary" : "config",  "partitioned"
+ : true }
+
+mongos> sh.addShard("localhost:27001")
+{
+"shardAdded" : "shard0000",
+"ok" : 1,
+"operationTime" : Timestamp(1555729631, 4),
+"$clusterTime" : {
+"clusterTime" : Timestamp(1555729631, 4),
+"signature" : {
+"hash" : BinData(0,"AAAAAAAAAAAAAAAAAAAAAA
+AAAAA="),
+"keyId" : NumberLong(0)
+}
+}
+}
+mongos> sh.status()
+--- Sharding Status --- 
+  sharding version: {
+  "_id" : 1,
+  "minCompatibleVersion" : 5,
+  "currentVersion" : 6,
+  "clusterId" : ObjectId("5cba898fcee52004346484bb")
+  }
+  shards:
+        {  "_id" : "shard0000",  "host" : "localhost:27001",  "sta
+te" : 1 }
+  active mongoses:
+        "4.0.9" : 1
+  autosplit:
+        Currently enabled: yes
+  balancer:
+        Currently enabled:  yes
+        Currently running:  no
+        Failed balancer rounds in last 5 attempts:  0
+        Migration Results for the last 24 hours: 
+                No recent migrations
+  databases:
+        {  "_id" : "config",  "primary" : "config",  "partitioned"
+ : true }
+
+mongos> 
+
+#Add the shard to the mongos
+mongo --port 27020 --eval 'sh.addShard("localhost:27002")'
+mongo --port 27020 --eval 'sh.addShard("localhost:27003")'
+mongo --port 27020 --eval 'sh.addShard("localhost:27004")'
+mongo --port 27020 --eval 'sh.addShard("localhost:27005")'
+mongo --port 27020 --eval 'sh.addShard("localhost:27006")'
+mongo --port 27020 --eval 'sh.addShard("localhost:27007")'
+mongo --port 27020 --eval 'sh.addShard("localhost:27008")'
+mongo --port 27020 --eval 'sh.addShard("localhost:27009")'
+mongo --port 27020 --eval 'sh.addShard("localhost:27010")'
+mongo --port 27020 --eval 'sh.addShard("localhost:27011")'
+mongo --port 27020 --eval 'sh.addShard("localhost:27012")'
+
+
+dhaynes@js-171-244:/data$ mongo --port 27020 --eval 'sh.addShard("
+localhost:27002")'
+MongoDB shell version v4.0.9
+connecting to: mongodb://127.0.0.1:27020/?gssapiServiceName=mongod
+b
+Implicit session: session { "id" : UUID("231fe345-5089-4136-9d78-a
+1bd3107606e") }
+MongoDB server version: 4.0.9
+{
+"shardAdded" : "shard0001",
+"ok" : 1,
+"operationTime" : Timestamp(1555730050, 3),
+"$clusterTime" : {
+"clusterTime" : Timestamp(1555730050, 4),
+"signature" : {
+"hash" : BinData(0,"AAAAAAAAAAAAAAAAAAAAAA
+AAAAA="),
+"keyId" : NumberLong(0)
+}
+}
+}
+dhaynes@js-171-244:/data$ 
+
+
+
+-----
+mongos> sh.status()
+--- Sharding Status --- 
+  sharding version: {
+  "_id" : 1,
+  "minCompatibleVersion" : 5,
+  "currentVersion" : 6,
+  "clusterId" : ObjectId("5cba898fcee52004346484bb")
+  }
+  shards:
+        {  "_id" : "shard0000",  "host" : "localhost:27001",  "sta
+te" : 1 }
+        {  "_id" : "shard0001",  "host" : "localhost:27002",  "sta
+te" : 1 }
+        {  "_id" : "shard0002",  "host" : "localhost:27003",  "sta
+te" : 1 }
+        {  "_id" : "shard0003",  "host" : "localhost:27004",  "sta
+te" : 1 }
+        {  "_id" : "shard0004",  "host" : "localhost:27005",  "sta
+te" : 1 }
+        {  "_id" : "shard0005",  "host" : "localhost:27006",  "sta
+te" : 1 }
+        {  "_id" : "shard0006",  "host" : "localhost:27007",  "sta
+te" : 1 }
+        {  "_id" : "shard0007",  "host" : "localhost:27008",  "sta
+te" : 1 }
+       {  "_id" : "shard0008",  "host" : "localhost:27009",  "sta
+te" : 1 }
+        {  "_id" : "shard0009",  "host" : "localhost:27010",  "sta
+te" : 1 }
+        {  "_id" : "shard0010",  "host" : "localhost:27011",  "sta
+te" : 1 }
+        {  "_id" : "shard0011",  "host" : "localhost:27012",  "sta
+te" : 1 }
+  active mongoses:
+        "4.0.9" : 1
+  autosplit:
+        Currently enabled: yes
+  balancer:
+        Currently enabled:  yes
+        Currently running:  no
+        Failed balancer rounds in last 5 attempts:  0
+        Migration Results for the last 24 hours: 
+                No recent migrations
+  databases:
+        {  "_id" : "config",  "primary" : "config",  "partitioned"
+ : true }
+                config.system.sessions
+                        shard key: { "_id" : 1 }
+                        unique: false
+                        balancing: true
+                        chunks:
+                                shard00001
+                        { "_id" : { "$minKey" : 1 } } -->> { "_id"
+ : { "$maxKey" : 1 } } on : shard0000 Timestamp(1, 0) 
+
+mongos> 
