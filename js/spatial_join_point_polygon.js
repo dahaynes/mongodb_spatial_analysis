@@ -34,7 +34,7 @@ db.getCollection("states_hashed").aggregate(
 		// Stage 3
 		{
 			$project: {
-			     _id: "0", NAME: 1, geom: "1", points_x: {geom: {coordinates: {$toDouble: {$arrayElemAt: ["$points.geom.coordinates", 0] } }}}, points_y: {geom: {coordinates: {$toDouble: {$arrayElemAt: ["$points.geom.coordinates", 1] } }}}
+			     _id: "0", NAME: 1, geom: 1, "points.geom": 1, points_x: {geom: {coordinates: {$toDouble: {$arrayElemAt: ["$points.geom.coordinates", 0] } }}}, "points_y.geom.coordinates": {$toDouble: {$arrayElemAt: ["$points.geom.coordinates", 1] } }
 			//     "$points.geom.coordinates(0)
 			}
 		},
@@ -47,8 +47,8 @@ db.getCollection("states_hashed").aggregate(
 			        "$geometry" : {
 			            //"$points.geom.coordinates(0)"
 			            "type": "Point",
-			//            "coordinates": [-100.19417611867914, 39.39287051366615]
-			            "coordinates": ["$points_x.geom.coordinates", "$points_y.geom.coordinates"]
+			            "coordinates": [-100.19417611867914, 39.39287051366615]
+			//            "coordinates": ["$points_x.geom.coordinates", "$points_y.geom.coordinates"]
 			        	}
 			    	}
 				}
@@ -58,7 +58,7 @@ db.getCollection("states_hashed").aggregate(
 		// Stage 5
 		{
 			$group: {
-			 _id: {"NAME": "NAME"}, count: {$sum: 1}
+			 _id: {"NAME": "$NAME"}, count: {$sum: 1}
 			}
 		},
 

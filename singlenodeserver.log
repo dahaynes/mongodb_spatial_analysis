@@ -1,0 +1,8 @@
+sudo mongod --configsvr --bind_ip localhost --port 27010 -replSet test --dbpath /data/head_node --fork --logpath /data/head_node.log 
+mongo --port 27010 --eval 'rs.initiate({_id: "test", configsvr: true, members: [{ _id : 0, host : "localhost:27010" }]})'
+sudo mongod --shardsvr  --bind_ip localhost --replSet shards --dbpath /data/mongo_node1 --port 27018 --fork --logpath /data/node1.log 
+sudo mongod --shardsvr  --bind_ip localhost --replSet shards --dbpath /data/mongo_node2 --port 27019 --fork --logpath /data/node2.log 
+mongo --port 27018 --eval 'rs.initiate({ _id: "shards", members: [ { _id : 0, host : "localhost:27018" }, { _id : 1, host : "localhost:27019" } ] })'
+sudo mongos --configdb test/localhost:27010  --logappend --logpath /data/log.mongos --port 27011 --fork
+mongo --port 27011  --eval 'sh.addShard( "shards/localhost:27018")'
+mongo --port 27011  --eval 'sh.addShard( "shards/localhost:27019")'

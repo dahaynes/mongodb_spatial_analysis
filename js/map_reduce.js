@@ -1,15 +1,18 @@
-db.points.mapReduce( 
-    function() { 
-        emit(this.HASH_2, 1);
-    },
-    function(key, values){
-        return Array.sum(values)
-        },
-    {
-        query: { HASH_2: "9x"},
-        out: "total_hash"
-        }
-//         k = this.geom;
-//         print("the geom" + k.toString());
-//         }
-    )
+// *** 3T Software Labs, Studio 3T: MapReduce Job ****
+
+// Variable for map
+var __3tsoftwarelabs_map = function() { 
+        emit(this.NAME, {geom: this.geom, points: 0});
+    };
+
+// Variable for reduce
+var __3tsoftwarelabs_reduce = function(key, value){	var results = db.randompoints_hashed.aggregate(		[			{			    "$match": {			        "geom": {			            $geoIntersects: {			                $geometry: polyGeom			            }			        }			    }			},			{			    "$count": "num_points"			}		]	)	//j = points.toArray()[0]	//this.value.records = "$$points.count"	//printjson(j)	//db.states_hashed.insert(points.pretty)	//var doc = points.pretty()	var pointCount = results._batch[0].num_points	//print(key, pointCount)	value.points.points = pointCount	db.states_hashed.insert({points: pointCount})	return(points)
+};
+
+db.runCommand({ 
+    mapReduce: "states_hashed",
+    map: __3tsoftwarelabs_map,
+    reduce: __3tsoftwarelabs_reduce,
+    out: { "reduce" : "results", "sharded" : false, "nonAtomic" : false },
+    inputDB: "research",
+ });
