@@ -50,7 +50,7 @@ def CreateSpatialIndex(theCollection):
 
 def CreatGeoHashedIndex(theCollection, hashKey):
     """
-    
+    db.random10m_points_hashed.ensureIndex({HASH_2: "hashed"})
     """
     
     theCollection.create_index([(hashKey, HASHED)])
@@ -186,12 +186,15 @@ def LoadShapefile(inFile, collectionName, mongoPort, shardkey=None, srid=4326):
         CreateSpatialIndex(mongoCollection)
         
         if shardkey:
-            print("Sharding collection by key: %s" % (shardkey))
+            print("Creating Hashed Index on %s" % (shardkey))
             CreatGeoHashedIndex(mongoCollection, shardkey)
             databaseMongoCollectionName = "%s.%s" % ("research", mongoCollection)
+            print("Sharding collection by key: %s" % (shardkey))
             #mongoDB.admin.c
             #This command is still failing
-            #mongoDB.admin.command('shardCollection', databaseMongoCollectionName, key={shardkey: "hashed"})
+            usemongoDB.admin.command('shardCollection', databaseMongoCollectionName, key={shardkey: "hashed"})
+            #"shardCollection may only be run against the admin database."
+            #db.runCommand({shardCollection: "research.random10m_points_hashed",key:{HASH_2: "hashed"}})
         
 
 
