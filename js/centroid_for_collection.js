@@ -610,14 +610,20 @@ while (mongoCur.hasNext()) {
     print("geometry type:", f.geom.type)
     var featureGeom = f.geom.type
     switch (featureGeom){
-    case "Polygon":
-    	print("I'm a polygon")
-    	var thePolygon = polygon(f.geom.coordinates,{name: f.NAME})
-		printjson(centroid(thePolygon))
-    case "MultiPolygon":
-    	print("mmmmmulti polygon")
-    	var theMultiPolygon = multiPolygon(f.geom.coordinates, {name: f.NAME})
-		printjson(centroid(theMultiPolygon))
+	    case "Polygon":
+    		print(f.NAME," is a polygon");
+    		var thePolygon = polygon(f.geom.coordinates,{name: f.NAME});
+			printjson(centroid(thePolygon));
+    	case "MultiPolygon":
+    		print("mmmmmulti polygon", f.NAME);
+    		var arrayLength = f.geom.coordinates.length;
+    		for (var i = 0; i < arrayLength; i++){
+    		    print("polygon number: ", i);
+    		    var theMultiPolygon = multiPolygon([f.geom.coordinates[i]], {name: f.NAME});
+    		    printjson(centroid(theMultiPolygon));
+//    		g.geom.coordinates[i]
+    		}
+
     }
 }
 var stopTime = new Date().getTime();
