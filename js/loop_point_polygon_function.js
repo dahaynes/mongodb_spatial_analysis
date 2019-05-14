@@ -1,4 +1,4 @@
-function pointPolygonJoin(polyCollection, pointCollection) {
+function pointPolygonCount(polyCollection, pointCollection) {
 
 var polyCursor = db.getCollection(polyCollection).find();
 var startTime = new Date().getTime();
@@ -26,4 +26,4 @@ var stopTime = new Date().getTime();
 print("Elapsed Time: ", stopTime-startTime)
 }
 
-pointPolygonJoin("states_hashed")
+pointPolygonCount("states_hashed", "randompoints_10m_hashed")
