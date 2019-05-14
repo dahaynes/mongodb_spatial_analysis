@@ -599,42 +599,52 @@ var poly = polygon( [ [		 [-109.060253, 36.992426],
 
 var k = point([-109.060253, 36.992426], {id:"1"})
 
-
-printjson(poly)
-printjson(centroid(poly))
-printjson(k)
-
-var mongoCur = db.states_hashed.find({NAME:"Nebraska"})
-var mongoCur = db.colorado.find()
-
-//db.getCollection("states_hashed").find({NAME:"Nebraska"}, 
-//    { 
-//        "geom.coordinates" : "$geom.coordinates", 
-//        "_id" : NumberInt(0)
-//    }
-//);
+//printjson(poly)
+//printjson(centroid(poly))
+//printjson(k)
 
 var startTime = new Date().getTime();
-var f = mongoCur.next()
-var x = tostrictjson(f.geom) // tojsonObject(f.geom.coordinates)
-var txt = tojsonObject(f.geom.coordinates)
-printjson(tojsonObject(f.geom.coordinates).replace('\n',''))
-print(txt.replace(/\n/,''))
-
-let fixed2 = txt.replace('\n',' ')
-print(fixed2)
-
-let theFeature = f;
-// print(x[0])
-print(f.geom.coordinates)
-var theGeom = JSON.parse(f.geom))
-
-print(JSON.parse(theFeature.geom.coordinates))
-
-var thePolygon = polygon(f.geom.coordinates,{name: "test"})
-printjson(centroid(thePolygon))
-printjson(thePolygon)
-
+var mongoCur = db.getCollection("states_hashed").find({})
+while (mongoCur.hasNext()) {
+    var f = mongoCur.next()
+    print("geometry type:", f.geom.type)
+    var featureGeom = f.geom.type
+    switch (featureGeom){
+    case "Polygon":
+    	print("I'm a polygon")
+    	var thePolygon = polygon(f.geom.coordinates,{name: f.NAME})
+		printjson(centroid(thePolygon))
+    case "MultiPolygon":
+    	print("mmmmmulti polygon")
+    	var theMultiPolygon = multiPolygon(f.geom.coordinates, {name: f.NAME})
+		printjson(centroid(theMultiPolygon))
+    }
+}
 var stopTime = new Date().getTime();
 print("Elapsed Time: ", stopTime-startTime);
+
+//var mongoCur = db.colorado.find()
+
+
+
+// var f = mongoCur.next()
+//var x = tostrictjson(f.geom) // tojsonObject(f.geom.coordinates)
+//var txt = tojsonObject(f.geom.coordinates)
+//printjson(tojsonObject(f.geom.coordinates).replace('\n',''))
+//print(txt.replace(/\n/,''))
+
+//let fixed2 = txt.replace('\n',' ')
+//print(fixed2)
+
+//let theFeature = f;
+// print(x[0])
+//print(f.geom.coordinates)
+//var theGeom = JSON.parse(f.geom))
+
+//print(JSON.parse(theFeature.geom.coordinates))
+
+
+// printjson(thePolygon)
+
+
 
