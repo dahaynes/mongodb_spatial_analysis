@@ -589,6 +589,7 @@ function coordEach(geojson, callback, excludeWrapCoord) {
     }
 }
 
+
 var poly = polygon( [ [		 [-109.060253, 36.992426], 
              [-102.041524, 36.992426], 
              [-102.041524, 41.003444], 
@@ -603,7 +604,8 @@ printjson(poly)
 printjson(centroid(poly))
 printjson(k)
 
-var feature = db.states_hashed.find({NAME:"Nebraska"})
+var mongoCur = db.states_hashed.find({NAME:"Nebraska"})
+var mongoCur = db.colorado.find()
 
 //db.getCollection("states_hashed").find({NAME:"Nebraska"}, 
 //    { 
@@ -613,14 +615,26 @@ var feature = db.states_hashed.find({NAME:"Nebraska"})
 //);
 
 var startTime = new Date().getTime();
-var f = feature.next()
-var x = tostrictjson(f.geom.coordinates) // tojsonObject(f.geom.coordinates)
-x[module]
+var f = mongoCur.next()
+var x = tostrictjson(f.geom) // tojsonObject(f.geom.coordinates)
+var txt = tojsonObject(f.geom.coordinates)
+printjson(tojsonObject(f.geom.coordinates).replace('\n',''))
+print(txt.replace(/\n/,''))
 
-print(x[0])
+let fixed2 = txt.replace('\n',' ')
+print(fixed2)
 
-var thePolygon = polygon(x)
-printjson(centroid()
+let theFeature = f;
+// print(x[0])
+print(f.geom.coordinates)
+var theGeom = JSON.parse(f.geom))
+
+print(JSON.parse(theFeature.geom.coordinates))
+
+var thePolygon = polygon(f.geom.coordinates,{name: "test"})
+printjson(centroid(thePolygon))
+printjson(thePolygon)
 
 var stopTime = new Date().getTime();
 print("Elapsed Time: ", stopTime-startTime);
+
