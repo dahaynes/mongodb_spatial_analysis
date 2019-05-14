@@ -1,3 +1,5 @@
+function centroidOfPolyFeature(polyCollection) {
+    
 var earthRadius = 6371008.8;
 
 /**
@@ -604,30 +606,37 @@ var k = point([-109.060253, 36.992426], {id:"1"})
 //printjson(k)
 
 var startTime = new Date().getTime();
-var mongoCur = db.getCollection("states_hashed").find({})
+var mongoCur = db.getCollection(polyCollection).find({})
 while (mongoCur.hasNext()) {
     var f = mongoCur.next()
     print("geometry type:", f.geom.type)
-    var featureGeom = f.geom.type
-    switch (featureGeom){
-	    case "Polygon":
+    featureGeomType = f.geom.type
+    if (featureGeomType == 'Polygon') {
+        
     		print(f.NAME," is a polygon");
     		var thePolygon = polygon(f.geom.coordinates,{name: f.NAME});
 			printjson(centroid(thePolygon));
-    	case "MultiPolygon":
-    		print("mmmmmulti polygon", f.NAME);
-    		var arrayLength = f.geom.coordinates.length;
-    		for (var i = 0; i < arrayLength; i++){
-    		    print("polygon number: ", i);
-    		    var theMultiPolygon = multiPolygon([f.geom.coordinates[i]], {name: f.NAME});
-    		    printjson(centroid(theMultiPolygon));
-//    		g.geom.coordinates[i]
-    		}
+    } else if (featureGeomType == 'MultiPolygon') {
 
+    		print("mmulti polygon", f.NAME);
+    		var theMultiPolygon = multiPolygon(f.geom.coordinates, {name: f.NAME});
+    		printjson(centroid(theMultiPolygon));
+    		
+    		var arrayLength = f.geom.coordinates.length;
+//    		for (var i = 0; i < arrayLength; i++){
+//    		    print("polygon number: ", i);
+//    		    var theMultiPolygon = multiPolygon([f.geom.coordinates[i]], {name: f.NAME});
+//    		    printjson(centroid(theMultiPolygon));
+//    		}
     }
-}
+    print(featureGeomType);
+
+
+    
+	}
 var stopTime = new Date().getTime();
 print("Elapsed Time: ", stopTime-startTime);
+}
 
 //var mongoCur = db.colorado.find()
 
@@ -653,4 +662,5 @@ print("Elapsed Time: ", stopTime-startTime);
 // printjson(thePolygon)
 
 
+centroidOfPolyFeature("states_hashed")
 

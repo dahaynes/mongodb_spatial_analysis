@@ -1,9 +1,10 @@
-function pointPolygonJoin() {
-var polyCursor = db.states_hashed.find();
+function pointPolygonJoin(polyCollection, pointCollection) {
+
+var polyCursor = db.getCollection(polyCollection).find();
 var startTime = new Date().getTime();
 while (polyCursor.hasNext()) {
     var poly = polyCursor.next()
-    var results = db.randompoints_10t.aggregate(
+    var results = db.getCollection(pointCollection).aggregate(
 	[
 		{
 		    "$match": {
@@ -25,4 +26,4 @@ var stopTime = new Date().getTime();
 print("Elapsed Time: ", stopTime-startTime)
 }
 
-pointPolygonJoin()
+pointPolygonJoin("states_hashed")
