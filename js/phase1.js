@@ -1,5 +1,4 @@
 db.getCollection("states_hashed").aggregate(
-
 	// Pipeline
 	[
 		// Stage 1
@@ -11,7 +10,6 @@ db.getCollection("states_hashed").aggregate(
 			    as: "points"
 			}
 		},
-
 		// Stage 2
 		{
 			$unwind: {
@@ -20,22 +18,11 @@ db.getCollection("states_hashed").aggregate(
 			    preserveNullAndEmptyArrays : false // optional
 			}
 		},
-
 		// Stage 3
 		{
 			$project: {
-			     _id: 0, NAME: 1, geom: 1, "points.geom": 1, points_x: {geom: {coordinates: {$toDouble: {$arrayElemAt: ["$points.geom.coordinates", 0] } }}}, "points_y.geom.coordinates": {$toDouble: {$arrayElemAt: ["$points.geom.coordinates", 1] } }
-			//     "$points.geom.coordinates(0)
+			     _id: "0", NAME: 1, geom: 1, "points.geom": 1, points_x: {geom: {coordinates: {$toDouble: {$arrayElemAt: ["$points.geom.coordinates", 0] } }}}, "points_y.geom.coordinates": {$toDouble: {$arrayElemAt: ["$points.geom.coordinates", 1] } }
 			}
 		},
-
-		// Stage 4
-		{
-			$out: "point_n_polys"
-		},
-
 	]
-
-	// Created with Studio 3T, the IDE for MongoDB - https://studio3t.com/
-
 );

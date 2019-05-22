@@ -4,10 +4,10 @@
 //	// var r = values.geom.type
 
 var polyCursor = db.states_hashed.find();
-// poly = polyCursor.next()
+var startTime = new Date().getTime();
 while (polyCursor.hasNext()) {
     var poly = polyCursor.next()
-    var results = db.randompoints_hashed.aggregate(
+    var results = db.random10m_points_hashed_sharded.aggregate(
 	[
 		{
 		    "$match": {
@@ -25,6 +25,8 @@ while (polyCursor.hasNext()) {
 	var points = results._batch[0].num_points;
 	print(poly.NAME, points);
 }
+var stopTime = new Date().getTime();
+print("Elapsed Time: ", stopTime-startTime);
 
 
 

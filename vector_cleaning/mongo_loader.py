@@ -19,16 +19,16 @@ import timeit
 
 
 
-def CreateMongoConnection(host='localhost', port=27017, db='research'):
+def CreateMongoConnection(host='localhost', port=27017):
     """
     host=['localhost:27017']
     """
     connString ="%s:%s" % (host, port)
     print(connString)
     connection = MongoClient(connString) #host
-    theDB = connection[db]
+
         
-    return(connection, theDB)
+    return(connection)
 
 def CreateMongoCollection(theCon, collectionName ):
     """
@@ -101,11 +101,12 @@ def progress(count, total, status=''):
     print('[%s] %s%s ...%s\r' % (bar, percents, '%', status))
 
 
-def LoadShapefile(inFile, collectionName, mongoPort, mongoDB="research", shardkey=None, srid=4326):
+def LoadShapefile(inFile, collectionName, mongoPort, mongoDatabase="research", shardkey=None, srid=4326):
     """
     Function for loading a shapefile
     """
-    mongoCon, mongoDB = CreateMongoConnection(host='localhost', port=mongoPort)
+    mongoCon = CreateMongoConnection(host='localhost', port=mongoPort)
+    mongoDB = mongoCon[mongoDatabase]
     shapeDir, shapeFileName = os.path.split(inFile)
     
     CreateMongoCollection(mongoDB, collectionName )
@@ -118,7 +119,11 @@ def LoadShapefile(inFile, collectionName, mongoPort, mongoDB="research", shardke
         print("Sharding collection by key: %s" % (shardkey))
         #mongoDB.admin.c
         #This command is still failing
-        usemongoDB.admin.command('shardCollection', databaseMongoCollectionName, key={shardkey: "hashed"})
+        adminDB = mongoCon.admin
+        adminDB.command('enableSharding', mongoDatabase)
+        #print(adminDB.command('listCommands'))
+        adminDB.command({'shardCollection': databaseMongoCollectionName, 'key':{shardkey: "hashed"}})
+        #usemongoDB.admin.command('shardCollection', databaseMongoCollectionName, key={shardkey: "hashed"})
 
     with fiona.open(fileIn, 'r', crs=srid) as theShp:
         
@@ -198,7 +203,9 @@ def LoadShapefile(inFile, collectionName, mongoPort, mongoDB="research", shardke
         print("Creating Spatial Index")
         CreateSpatialIndex(mongoCollection)
         
-
+        if shardkey:
+            print("Creating Hashed Index on %s" % (shardkey))
+            CreatGeoHashedIndex(mongoCollection, shardkey)
             #"shardCollection may only be run against the admin database."
             #db.runCommand({shardCollection: "research.random10m_points_hashed",key:{HASH_2: "hashed"}})
         
