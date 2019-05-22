@@ -107,11 +107,23 @@ def LoadShapefile(inFile, collectionName, mongoPort, shardkey=None, srid=4326):
     """
     mongoCon, mongoDB = CreateMongoConnection(host='localhost', port=mongoPort)
     shapeDir, shapeFileName = os.path.split(inFile)
+    
+    CreateMongoCollection(mongoDB, collectionName )
+    
+    if shardkey:
+        print("Creating Hashed Index on %s" % (shardkey))
+        CreatGeoHashedIndex(mongoCollection, shardkey)
+        databaseMongoCollectionName = "%s.%s" % ("research", mongoCollection)
+        print("Sharding collection by key: %s" % (shardkey))
+        #mongoDB.admin.c
+        #This command is still failing
+        usemongoDB.admin.command('shardCollection', databaseMongoCollectionName, key={shardkey: "hashed"})
+
     with fiona.open(fileIn, 'r', crs=srid) as theShp:
         
-        CreateMongoCollection(mongoDB, collectionName )
+        
         mongoCollection  = mongoDB[collectionName]
-        badGeoms = []      
+        badGeoms = []
     
         for f, feature in enumerate(theShp):
             featureType = feature['geometry']['type']
@@ -185,14 +197,7 @@ def LoadShapefile(inFile, collectionName, mongoPort, shardkey=None, srid=4326):
         print("Creating Spatial Index")
         CreateSpatialIndex(mongoCollection)
         
-        if shardkey:
-            print("Creating Hashed Index on %s" % (shardkey))
-            CreatGeoHashedIndex(mongoCollection, shardkey)
-            databaseMongoCollectionName = "%s.%s" % ("research", mongoCollection)
-            print("Sharding collection by key: %s" % (shardkey))
-            #mongoDB.admin.c
-            #This command is still failing
-            usemongoDB.admin.command('shardCollection', databaseMongoCollectionName, key={shardkey: "hashed"})
+
             #"shardCollection may only be run against the admin database."
             #db.runCommand({shardCollection: "research.random10m_points_hashed",key:{HASH_2: "hashed"}})
         
