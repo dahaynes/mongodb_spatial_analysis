@@ -101,7 +101,7 @@ def progress(count, total, status=''):
     print('[%s] %s%s ...%s\r' % (bar, percents, '%', status))
 
 
-def LoadShapefile(inFile, collectionName, mongoPort, shardkey=None, srid=4326):
+def LoadShapefile(inFile, collectionName, mongoPort, mongoDB="research", shardkey=None, srid=4326):
     """
     Function for loading a shapefile
     """
@@ -109,6 +109,7 @@ def LoadShapefile(inFile, collectionName, mongoPort, shardkey=None, srid=4326):
     shapeDir, shapeFileName = os.path.split(inFile)
     
     CreateMongoCollection(mongoDB, collectionName )
+    mongoCollection  = mongoDB[collectionName]
     
     if shardkey:
         print("Creating Hashed Index on %s" % (shardkey))
@@ -215,6 +216,7 @@ def argument_parser():
     parser.add_argument("-p", required=True, type=int, help="port number of mongo", dest="port")   
     parser.add_argument("-c", required=False, type=str, help="Name of MongoDB collection", dest="collectionName")
     parser.add_argument("-f", required=False, type=str, help="Field Name for sharded collection", dest="shardKey")
+    parser.add_argument("-d", required=False, type=str, help="Name of database", dest="db")
 
     return parser
         
@@ -230,7 +232,7 @@ if __name__ == '__main__':
     else:
         collectionName = args.collectionName
 
-    LoadShapefile(fileIn, collectionName, args.port, args.shardKey)
+    LoadShapefile(fileIn, collectionName, args.port, mongoDB=args.db, shardkey=args.shardKey)
            
             
     print("Finished")            
