@@ -101,34 +101,38 @@ def progress(count, total, status=''):
     print('[%s] %s%s ...%s\r' % (bar, percents, '%', status))
 
 
-def LoadShapefile(inFile, collectionName, mongoPort, mongoDatabase="research", shardkey=None, srid=4326):
+def LoadShapefile(inFile, collectionName, mongoPort, mongoDatabase="research", shardkey=None):
     """
     Function for loading a shapefile
     """
     mongoCon = CreateMongoConnection(host='localhost', port=mongoPort)
-    mongoDB = mongoCon[mongoDatabase]
+    databaseName = str(mongoDatabase)
+    mongoDB = mongoCon[databaseName]
     shapeDir, shapeFileName = os.path.split(inFile)
     
     CreateMongoCollection(mongoDB, collectionName )
     mongoCollection  = mongoDB[collectionName]
     
     if shardkey:
-        print("Creating Hashed Index on %s" % (shardkey))
-        CreatGeoHashedIndex(mongoCollection, shardkey)
-        databaseMongoCollectionName = "%s.%s" % ("research", mongoCollection)
+        #print("Creating Hashed Index on %s" % (shardkey))
+        #CreatGeoHashedIndex(mongoCollection, shardkey)
+        databaseMongoCollectionName = "%s.%s" % ("research", collectionName)
         print("Sharding collection by key: %s" % (shardkey))
         #mongoDB.admin.c
         #This command is still failing
-        adminDB = mongoCon.admin
-        adminDB.command('enableSharding', mongoDatabase)
+        adminDB = mongoCon['admin']
+        adminDB.command('enableSharding', databaseName)
         #print(adminDB.command('listCommands'))
-        adminDB.command({'shardCollection': databaseMongoCollectionName, 'key':{shardkey: "hashed"}})
+        print("""{%s: "%s"}, key: {%s: "hashed"} """ % ("shardCollection", databaseMongoCollectionName, shardkey ))
+        adminDB.command({"shardCollection": databaseMongoCollectionName, "key":{shardkey: "hashed"}})
         #usemongoDB.admin.command('shardCollection', databaseMongoCollectionName, key={shardkey: "hashed"})
+        del adminDB, mongoDB
 
-    with fiona.open(fileIn, 'r', crs=srid) as theShp:
-        
-        
+    with fiona.open(fileIn, 'r', crs=4326) as theShp:
+         
+        mongoDB = mongoCon['research'] 
         mongoCollection  = mongoDB[collectionName]
+        print(databaseName, mongoDatabase, mongoDB.list_collection_names())
         badGeoms = []
     
         for f, feature in enumerate(theShp):
@@ -178,17 +182,21 @@ def LoadShapefile(inFile, collectionName, mongoPort, mongoDatabase="research", s
                 #}
                 pass
             
-
+           
             if insertData:
                 
                 mongoDocument = {'geom': {'type': featureType, 'coordinates': mongoCoordinates }  }
                 mongoDocument.update(feature['properties'])
                 
-                mongoR = mongoCollection.insert_one(mongoDocument) #'properties': feature['properties'] feature['properties']['BLOCKID10']
+                mongoR = mongoCollection.insert_one(mongoDocument) 
+                #'properties': feature['properties'] feature['properties']['BLOCKID10']
+                #print(mongoR, dir(mongoR))
                 #print("Loaded %s %s of %s" % (featureType, feature['id'], len(theShp)))
                 
-                if len(theShp) %(f+1):
+                if not len(theShp) %(f+1):
+                    print(f+1, mongoDocument)
                     progress(f+1, len(theShp), status='loading')
+                    print(mongoCollection.count())
                 #mongoCollection.create_index( [("geom",GEOSPHERE)])
                 del mongoCoordinates
                 insertData = False
@@ -239,7 +247,7 @@ if __name__ == '__main__':
     else:
         collectionName = args.collectionName
 
-    LoadShapefile(fileIn, collectionName, args.port, mongoDB=args.db, shardkey=args.shardKey)
+    LoadShapefile(fileIn, collectionName, args.port, mongoDatabase=args.db, shardkey=args.shardKey)
            
             
     print("Finished")            
