@@ -112,7 +112,8 @@ def progress(count, total, status=''):
 
 def ReadCSV(mongoCollection, inFilePath, geomField="geom_text", delimiterChar=";"):
     """
-    
+    Function for reading in a large CSV
+    geomField must be WKT
     """
     print("Reading CSV path %s and Loading records" % (inFilePath))
     with open(inFilePath, 'r', newline="\n") as fin:
@@ -130,7 +131,7 @@ def ReadCSV(mongoCollection, inFilePath, geomField="geom_text", delimiterChar=";
                 CreateMongoGeospatialDocument( mongoCollection, theGeom.type, CreateMongoPoint(list(theGeom.coords)[0]), rec )
             if theGeom.type == "MultiPolygon":
                 # print("Number of polygons: ",len(theGeom.geoms))
-                coordinates = ValidMultiPolygon(theGeom)
+                coordinates = ValidateMultiPolygon(theGeom)
                 CreateMongoGeospatialDocument( mongoCollection, theGeom.type, coordinates, rec )
                 # break
 
@@ -207,7 +208,7 @@ def CreateMongoGeospatialDocument(mongoCollection, geospatialType, mongoCoordina
     
 #     CreatGeoHashedIndex(mongoCollection, shardkey)
     
-def ValidMultiPolygon(feature):
+def ValidateMultiPolygon(feature):
     """
 
     """
@@ -256,16 +257,16 @@ def ReadShapefile(mongoCollection, inFilePath):
                 #This isn't the best way to make the shapely multipolygon
                 listofPolygons  = [ Polygon(poly[0]) for poly in theFeaturePoints]
                 theFeature = MultiPolygon(listofPolygons)
-                mongoCoordinates = ValidMultiPolygon(theFeature)
+                mongoCoordinates = ValidateMultiPolygon(theFeature)
 
                         
                 if mongoCoordinates: created = CreateMongoGeospatialDocument( mongoCollection, featureType, mongoCoordinates, feature['properties'] )
             
-            elif featureType == "LineString".upper():
+            elif featureType == "LineString":
                 # { type: "LineString", coordinates: [ [ 40, 5 ], [ 41, 6 ] ] }
                 CreateMongoGeospatialDocument( mongoCollection, featureType, CreateMongoLine(theFeaturePoints), feature['properties'] ) 
 
-            elif featureType == "MultiLineString".upper():
+            elif featureType == "MultiLineString":
                     #  {
                     #   type: "MultiLineString",
                     #   coordinates: [
@@ -284,8 +285,7 @@ def ReadShapefile(mongoCollection, inFilePath):
                 if mongoCoordinates: created = CreateMongoGeospatialDocument( mongoCollection, featureType, CreateMongoPoint(theFeaturePoints), feature['properties'] )
                 
                 
-                
-            elif featureType == "MultiPoint".upper():
+            elif featureType == "MultiPoint":
                 #{
                 #  type: "MultiPoint",
                 #  coordinates: [
