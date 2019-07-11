@@ -161,19 +161,33 @@ def MongoDBPrep(collectionName, mongoPort, mongoDatabase="research", shardkey=No
 
     return mDB, mCollection
 
-def CreateMongoGeospatialDocument(mongoCollection, mongoCoordinates, featureAttributes):
+def CreateMongoGeospatialDocument(mongoCollection, geospatialType, mongoCoordinates, featureAttributes):
     """
 
     """
-    mongoDocument = {'geom': {'type': featureType, 'coordinates': mongoCoordinates }  }
-    mongoDocument.update(featureAttributes)
-    
-    mongoR = mongoCollection.insert_one(mongoDocument) 
+    try:
+        mongoDocument = {'geom': {'type': geospatialType, 'coordinates': mongoCoordinates }  }
+        mongoDocument.update(featureAttributes)
+        mongoR = mongoCollection.insert_one(mongoDocument) 
+    except:
+        pritnt("****Error Inserting", mongoDocument)
 
 # def ValidateP()
+def CreateSpatialIndex(mongoCollection)        :
+    """
 
+    """
+    print("Creating Spatial Index")
+    CreateSpatialIndex(mongoCollection)
 
-
+def CreateGeoHashedIndex(mongoCollection, shardKey):
+    """
+    #"shardCollection may only be run against the admin database."
+    #db.runCommand({shardCollection: "research.random10m_points_hashed",key:{HASH_2: "hashed"}})
+    """
+    print("Creating Hashed Index on %s" % (shardkey))
+    CreatGeoHashedIndex(mongoCollection, shardkey)
+    
 def ReadShapefile(mongoCollection, inFilePath):
     """
     
@@ -220,7 +234,7 @@ def ReadShapefile(mongoCollection, inFilePath):
             
             elif featureType == "LineString".upper():
                 # { type: "LineString", coordinates: [ [ 40, 5 ], [ 41, 6 ] ] }
-                CreateMongoGeospatialDocument( mongoCollection, CreateMongoLine(theFeaturePoints), feature['properties'] ) 
+                CreateMongoGeospatialDocument( mongoCollection, featureType, CreateMongoLine(theFeaturePoints), feature['properties'] ) 
 
             elif featureType == "MultiLineString".upper():
                     #  {
@@ -237,8 +251,10 @@ def ReadShapefile(mongoCollection, inFilePath):
             elif featureType == "Point":
                 #{ type: "Point", coordinates: [ 40, 5 ] }
                 mongoCoordinates = CreateMongoPoint(theFeaturePoints)
-                CreateMongoGeospatialDocument( mongoCollection, CreateMongoPoint(theFeaturePoints), feature['properties'] )
-                insertData = True
+                print(mongoCoordinates)
+                insertData = CreateMongoGeospatialDocument( mongoCollection, featureType, CreateMongoPoint(theFeaturePoints), feature['properties'] )
+                break
+                
                 
             elif featureType == "MultiPoint".upper():
                 #{
@@ -262,7 +278,7 @@ def ReadShapefile(mongoCollection, inFilePath):
                 #print("Loaded %s %s of %s" % (featureType, feature['id'], len(theShp)))
                 
                 if not len(theShp) %(f+1):
-                    print(f+1, mongoDocument)
+                    # print(f+1, mongoDocument)
                     progress(f+1, len(theShp), status='loading')
                     print(mongoCollection.count())
                 #mongoCollection.create_index( [("geom",GEOSPHERE)])
@@ -275,15 +291,10 @@ def ReadShapefile(mongoCollection, inFilePath):
                 badGeoms.append(feature['id'])
             
                 
+
         
-        print("Creating Spatial Index")
-        CreateSpatialIndex(mongoCollection)
-        
-        if shardkey:
-            print("Creating Hashed Index on %s" % (shardkey))
-            CreatGeoHashedIndex(mongoCollection, shardkey)
-            #"shardCollection may only be run against the admin database."
-            #db.runCommand({shardCollection: "research.random10m_points_hashed",key:{HASH_2: "hashed"}})
+        # if shardkey:
+
         
 
 
