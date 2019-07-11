@@ -40,19 +40,19 @@ def CreateMongoCollection(theCon, collectionName ):
         theCon.drop_collection(collectionName)
     
     
-def CreateSpatialIndex(theCollection):
+def CreateSpatialIndex(theCollection, geoIndex=GEOSPHERE):
     """
     This function create the Spatial Index  
     """
-    
-    theCollection.create_index([('geom', GEOSPHERE)])
+    print("Creating Geospatial Index: GEOSPHERE is default" )
+    theCollection.create_index([('geom', geoIndex)])
 
 def CreatGeoHashedIndex(theCollection, hashKey):
     """
     Creates a hashed index on a distributed dataset
     db.random10m_points_hashed.ensureIndex({HASH_2: "hashed"})
     """
-    
+    print("Creating Hashed Index on %s" % (hashKey))
     theCollection.create_index([(hashKey, HASHED)])
 
 
@@ -110,17 +110,21 @@ def progress(count, total, status=''):
     print('[%s] %s%s ...%s\r' % (bar, percents, '%', status))
 
 
-def ReadCSV(inFilePath, geomField="geom_text"):
+def ReadCSV(mongoCollection, inFilePath, geomField="geom_text", delimiterChar=";"):
     """
     
     """
-    with open(r'c:\scidb\counties.csv', 'r') as fin:
-        csvIn = csv.DictReader(fin, delimiter=";")
+    with open(inFilePath, 'r') as fin:
+        csvIn = csv.DictReader(fin, delimiter=delimiterChar)
         for rec in csvIn:
-            rec["geom"] = loads(rec['geom_text'])
+            theGeom = loads(rec[geomField])            
+            if theGeom.type == "POINT":
+                featureType = "Point"
+                mongoCoordinates = CreateMongoPoint(theGeom)
+                # print(mongoCoordinates)
+                insertData = CreateMongoGeospatialDocument( mongoCollection, featureType, CreateMongoPoint(theGeom), rec )
             
-            
-    return rec.type
+    return 1
         
 
          
@@ -168,25 +172,26 @@ def CreateMongoGeospatialDocument(mongoCollection, geospatialType, mongoCoordina
     try:
         mongoDocument = {'geom': {'type': geospatialType, 'coordinates': mongoCoordinates }  }
         mongoDocument.update(featureAttributes)
-        mongoR = mongoCollection.insert_one(mongoDocument) 
+        mongoR = mongoCollection.insert_one(mongoDocument)
+        return 1
     except:
-        pritnt("****Error Inserting", mongoDocument)
+        print("****Error Inserting", mongoDocument)
 
-# def ValidateP()
-def CreateSpatialIndex(mongoCollection)        :
-    """
+# # def ValidateP()
+# def CreateSpatialIndex(mongoCollection):
+#     """
 
-    """
-    print("Creating Spatial Index")
-    CreateSpatialIndex(mongoCollection)
+#     """
+#     print("Creating Spatial Index")
+#     CreateSpatialIndex(mongoCollection)
 
-def CreateGeoHashedIndex(mongoCollection, shardKey):
-    """
-    #"shardCollection may only be run against the admin database."
-    #db.runCommand({shardCollection: "research.random10m_points_hashed",key:{HASH_2: "hashed"}})
-    """
-    print("Creating Hashed Index on %s" % (shardkey))
-    CreatGeoHashedIndex(mongoCollection, shardkey)
+# def CreateGeoHashedIndex(mongoCollection, shardKey):
+#     """
+#     #"shardCollection may only be run against the admin database."
+#     #db.runCommand({shardCollection: "research.random10m_points_hashed",key:{HASH_2: "hashed"}})
+#     """
+    
+#     CreatGeoHashedIndex(mongoCollection, shardkey)
     
 def ReadShapefile(mongoCollection, inFilePath):
     """
@@ -194,7 +199,7 @@ def ReadShapefile(mongoCollection, inFilePath):
     """
     badGeoms = []
 
-    with fiona.open(fileIn, 'r', crs=4326) as theShp:
+    with fiona.open(inFilePath, 'r', crs=4326) as theShp:
          
         # mongoDB = mongoCon['research'] 
         # mongoCollection  = mongoDB[collectionName]
@@ -204,7 +209,7 @@ def ReadShapefile(mongoCollection, inFilePath):
         for f, feature in enumerate(theShp):
             featureType = feature['geometry']['type']
             theFeaturePoints = feature['geometry']['coordinates']
-            print(featureType)
+            # print(featureType)
     
             if featureType.upper() ==  "Polygon".upper():            
                 if len(feature['geometry']['coordinates']) == 1:
@@ -251,9 +256,9 @@ def ReadShapefile(mongoCollection, inFilePath):
             elif featureType == "Point":
                 #{ type: "Point", coordinates: [ 40, 5 ] }
                 mongoCoordinates = CreateMongoPoint(theFeaturePoints)
-                print(mongoCoordinates)
+                # print(mongoCoordinates)
                 insertData = CreateMongoGeospatialDocument( mongoCollection, featureType, CreateMongoPoint(theFeaturePoints), feature['properties'] )
-                break
+                
                 
                 
             elif featureType == "MultiPoint".upper():
@@ -282,8 +287,8 @@ def ReadShapefile(mongoCollection, inFilePath):
                     progress(f+1, len(theShp), status='loading')
                     print(mongoCollection.count())
                 #mongoCollection.create_index( [("geom",GEOSPHERE)])
-                del mongoCoordinates
-                insertData = False
+                del mongoCoordinates, insertData
+                
     
                 
             else:        
@@ -305,32 +310,50 @@ def argument_parser():
     import argparse
 
     parser = argparse.ArgumentParser(description= "Module for loading geometry data into MongoDB")    
-    
-    parser.add_argument("-s", required=True, help="Input file path for the shapefile", dest="shapefilePath")    
-
+     
+    #Required Parameters for Databases
     parser.add_argument("-host", required=True, type=str, help="host location of the mongos instance", dest="host", default="localhost")   
     parser.add_argument("-p", required=True, type=int, help="port number of mongo", dest="port")   
     
-    parser.add_argument("-c", required=False, type=str, help="Name of MongoDB collection", dest="collectionName")
+    parser.add_argument("-c", required=True, type=str, help="Name of MongoDB collection", dest="collectionName")
     parser.add_argument("-f", required=False, type=str, help="Field Name for sharded collection", dest="shardKey")
     parser.add_argument("-d", required=False, type=str, help="Name of database", dest="db")
 
+    parser.add_argument("-o", required=False, type=argparse.FileType('w'), help="The file path of the csv", dest="csv", default=None)
+
+    subparser = parser.add_subparsers(help='sub-command help', dest="command")
+    #Adding sub parsers requires the order of the arguments to be in a particular pattern
+    #Big parser arguments first, sub parser arguments second
+    shapefileParser = subparser.add_parser('shapefile')
+    
+    shapefileParser.add_argument("--shp", required=True, help="Input file path for the shapefile", dest="shapefilePath")    
+
+    csvParser = subparser.add_parser('csv')
+    csvParser.add_argument("--txt", required=True, type=str, help="Input file path for the csv", dest="inCSV") 
+    csvParser.add_argument("--delimiter", required=True, type=str, help=""" "Delimiter for CSV default = "," """, dest="delimiter")
+    csvParser.add_argument("--geom", required=True, help="The field name for the geometry text", dest="geom") 
+    # csvParser.add_argument("--keyvalue", required=True, action='append', type=lambda kv: kv.split("="), dest='keyvalues') 
     return parser
         
 if __name__ == '__main__':
     args = argument_parser().parse_args()
     start = timeit.default_timer()      
     
-    fileIn = args.shapefilePath
-    if not args.collectionName: 
-        directory, shapeFileName = os.path.split(fileIn)
-        collectionName = shapeFileName.split('.')[0]
-        #LoadShapefile(fileIn, collectionName)
-    else:
-        collectionName = args.collectionName
+    # fileIn = args.shapefilePath
+    # if not args.collectionName: 
+    #     directory, shapeFileName = os.path.split(fileIn)
+    #     collectionName = shapeFileName.split('.')[0]
+    #     #LoadShapefile(fileIn, collectionName)
+    # else:
+    #     collectionName = args.collectionName
 
-    mongoDB, mongoCollection = MongoDBPrep(collectionName, args.port, mongoDatabase=args.db, shardkey=args.shardKey)
-    ReadShapefile(mongoCollection, args.shapefilePath)
-            
+    mongoDB, mongoCollection = MongoDBPrep(args.collectionName, args.port, mongoDatabase=args.db, shardkey=args.shardKey)
+    if args.command == 'shapefile':
+        ReadShapefile(mongoCollection, args.shapefilePath)
+        CreateSpatialIndex(mongoCollection)
+    elif args.command == 'csv':
+        ReadCSV(mongoCollection, args.inCSV, args.geom, args.delimiter)            
+        CreateSpatialIndex(mongoCollection)
+
     print("Finished")            
             
