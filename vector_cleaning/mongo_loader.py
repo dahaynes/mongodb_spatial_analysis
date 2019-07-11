@@ -114,17 +114,26 @@ def ReadCSV(mongoCollection, inFilePath, geomField="geom_text", delimiterChar=";
     """
     
     """
-    with open(inFilePath, 'r') as fin:
+    print("Reading CSV path %s and Loading records" % (inFilePath))
+    with open(inFilePath, 'r', newline="\n") as fin:
         csvIn = csv.DictReader(fin, delimiter=delimiterChar)
-        for rec in csvIn:
-            theGeom = loads(rec[geomField])            
-            if theGeom.type == "POINT":
-                featureType = "Point"
-                mongoCoordinates = CreateMongoPoint(theGeom)
+        
+        for r, rec in enumerate(csvIn):
+            theGeom = loads(rec[geomField])
+                      
+            if theGeom.type == "Point":
+                ### Loaded type is tuple. Convert to list and take the first item ###
+                # print(theGeom, list(theGeom.coords)[0])
+                # mongoCoordinates = CreateMongoPoint(list(theGeom.coords)[0] ) 
                 # print(mongoCoordinates)
-                insertData = CreateMongoGeospatialDocument( mongoCollection, featureType, CreateMongoPoint(theGeom), rec )
+                CreateMongoGeospatialDocument( mongoCollection, theGeom.type, CreateMongoPoint(list(theGeom.coords)[0]), rec )
+            # if r <= 1000: break
+
+
+        
+    print("Loaded %s records into %s " % (mongoCollection.count(), mongoCollection))
             
-    return 1
+    
         
 
          
@@ -211,7 +220,7 @@ def ReadShapefile(mongoCollection, inFilePath):
             theFeaturePoints = feature['geometry']['coordinates']
             # print(featureType)
     
-            if featureType.upper() ==  "Polygon".upper():            
+            if featureType ==  "Polygon":            
                 if len(feature['geometry']['coordinates']) == 1:
                     #Single ring polygons
                     theFeature = Polygon(theFeaturePoints[0])
@@ -225,7 +234,7 @@ def ReadShapefile(mongoCollection, inFilePath):
                     mongoCoordinates = CreateMongoPolygon(theFeature)
                     insertData = True
             
-            elif featureType.upper() == "MultiPolygon".upper():
+            elif featureType == "MultiPolygon":
                 #This isn't the best way to make the shapely multipolygon
                 listofPolygons  = [ Polygon(poly[0]) for poly in theFeaturePoints]
                 theFeature = MultiPolygon(listofPolygons)
@@ -282,7 +291,7 @@ def ReadShapefile(mongoCollection, inFilePath):
                 #print(mongoR, dir(mongoR))
                 #print("Loaded %s %s of %s" % (featureType, feature['id'], len(theShp)))
                 
-                if not len(theShp) %(f+1):
+                if not len(theShp) % (f+1):
                     # print(f+1, mongoDocument)
                     progress(f+1, len(theShp), status='loading')
                     print(mongoCollection.count())
