@@ -120,14 +120,19 @@ def ReadCSV(mongoCollection, inFilePath, geomField="geom_text", delimiterChar=";
         
         for r, rec in enumerate(csvIn):
             theGeom = loads(rec[geomField])
-                      
+            del rec[geomField]
+            # print(theGeom.type)
             if theGeom.type == "Point":
                 ### Loaded type is tuple. Convert to list and take the first item ###
                 # print(theGeom, list(theGeom.coords)[0])
                 # mongoCoordinates = CreateMongoPoint(list(theGeom.coords)[0] ) 
                 # print(mongoCoordinates)
                 CreateMongoGeospatialDocument( mongoCollection, theGeom.type, CreateMongoPoint(list(theGeom.coords)[0]), rec )
-            # if r <= 1000: break
+            if theGeom.type == "MultiPolygon":
+                # print("Number of polygons: ",len(theGeom.geoms))
+                coordinates = ValidMultiPolygon(theGeom)
+                CreateMongoGeospatialDocument( mongoCollection, theGeom.type, coordinates, rec )
+                # break
 
 
         
@@ -202,12 +207,25 @@ def CreateMongoGeospatialDocument(mongoCollection, geospatialType, mongoCoordina
     
 #     CreatGeoHashedIndex(mongoCollection, shardkey)
     
+def ValidMultiPolygon(feature):
+    """
+
+    """
+    mongoCoordinates = []
+    for aPolygon in feature.geoms:
+        if aPolygon.is_valid and aPolygon.exterior.is_closed and aPolygon.exterior.is_valid:   
+            polygonCoordinates = CreateMongoPolygon(aPolygon)
+            mongoCoordinates.append(polygonCoordinates)
+
+    return mongoCoordinates
+
 def ReadShapefile(mongoCollection, inFilePath):
     """
     
     """
     badGeoms = []
-
+    mongoCoordinates = []
+    created = 0
     with fiona.open(inFilePath, 'r', crs=4326) as theShp:
          
         # mongoDB = mongoCon['research'] 
@@ -229,22 +247,19 @@ def ReadShapefile(mongoCollection, inFilePath):
                     interiorRings = [inR for inR in feature['geometry']['coordinates'][1:] ]                    
                     theFeature = Polygon(theFeaturePoints[0], holes=interiorRings )
                 
-                #Send to function theFeature
                 if theFeature.is_valid and theFeature.exterior.is_closed and theFeature.exterior.is_valid:    
                     mongoCoordinates = CreateMongoPolygon(theFeature)
-                    insertData = True
+                
+                if mongoCoordinates: created = CreateMongoGeospatialDocument( mongoCollection, featureType, mongoCoordinates, feature['properties'] )
             
             elif featureType == "MultiPolygon":
                 #This isn't the best way to make the shapely multipolygon
                 listofPolygons  = [ Polygon(poly[0]) for poly in theFeaturePoints]
                 theFeature = MultiPolygon(listofPolygons)
-                
-                mongoCoordinates = []
-                for aPolygon in theFeature.geoms:
-                    if aPolygon.is_valid and aPolygon.exterior.is_closed and aPolygon.exterior.is_valid:   
-                        polygonCoordinates = CreateMongoPolygon(aPolygon)
-                        mongoCoordinates.append(polygonCoordinates)
-                        insertData = True
+                mongoCoordinates = ValidMultiPolygon(theFeature)
+
+                        
+                if mongoCoordinates: created = CreateMongoGeospatialDocument( mongoCollection, featureType, mongoCoordinates, feature['properties'] )
             
             elif featureType == "LineString".upper():
                 # { type: "LineString", coordinates: [ [ 40, 5 ], [ 41, 6 ] ] }
@@ -266,7 +281,7 @@ def ReadShapefile(mongoCollection, inFilePath):
                 #{ type: "Point", coordinates: [ 40, 5 ] }
                 mongoCoordinates = CreateMongoPoint(theFeaturePoints)
                 # print(mongoCoordinates)
-                insertData = CreateMongoGeospatialDocument( mongoCollection, featureType, CreateMongoPoint(theFeaturePoints), feature['properties'] )
+                if mongoCoordinates: created = CreateMongoGeospatialDocument( mongoCollection, featureType, CreateMongoPoint(theFeaturePoints), feature['properties'] )
                 
                 
                 
@@ -284,8 +299,9 @@ def ReadShapefile(mongoCollection, inFilePath):
             
 
 
-            if insertData:
-                
+            if created:
+                print(mongoCoordinates, feature['properties'])
+                break
 
                 #'properties': feature['properties'] feature['properties']['BLOCKID10']
                 #print(mongoR, dir(mongoR))
@@ -296,14 +312,15 @@ def ReadShapefile(mongoCollection, inFilePath):
                     progress(f+1, len(theShp), status='loading')
                     print(mongoCollection.count())
                 #mongoCollection.create_index( [("geom",GEOSPHERE)])
-                del mongoCoordinates, insertData
-                
-    
+                del mongoCoordinates, created
+                    
                 
             else:        
                 print("Feature id %s is not valid" % (feature['id']))
                 badGeoms.append(feature['id'])
-            
+    
+    #Not correct
+    print("Loaded %s records into %s " % (mongoCollection.count(), mongoCollection))
                 
 
         
