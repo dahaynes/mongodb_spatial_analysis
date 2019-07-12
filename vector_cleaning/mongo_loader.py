@@ -121,15 +121,20 @@ def ReadCSV(mongoCollection, inFilePath, geomField="geom_text", delimiterChar=";
         
         for r, rec in enumerate(csvIn):
             theGeom = loads(rec[geomField])
-            del rec[geomField]
-            # print(theGeom.type)
+            # del rec[geomField]
+            # print(theGeom.type, rec[geomField])
             if theGeom.type == "Point":
                 ### Loaded type is tuple. Convert to list and take the first item ###
-                # print(theGeom, list(theGeom.coords)[0])
                 # mongoCoordinates = CreateMongoPoint(list(theGeom.coords)[0] ) 
                 # print(mongoCoordinates)
                 CreateMongoGeospatialDocument( mongoCollection, theGeom.type, CreateMongoPoint(list(theGeom.coords)[0]), rec )
-            # elif theGeom.type == ""
+            elif theGeom.type == "LineString":
+                print("Not finished")
+                break
+            elif theGeom.type == "MultiLineString":
+                coordinates = ValidateMultiLineString(theGeom)
+                # print(coordinates)
+                CreateMongoGeospatialDocument( mongoCollection, theGeom.type, coordinates, rec)
             elif theGeom.type == "Polygon":
                 coordinates = CreateMongoPolygon(theGeom)
                 CreateMongoGeospatialDocument( mongoCollection, theGeom.type, coordinates, rec)
@@ -139,8 +144,6 @@ def ReadCSV(mongoCollection, inFilePath, geomField="geom_text", delimiterChar=";
                 coordinates = ValidateMultiPolygon(theGeom)
                 CreateMongoGeospatialDocument( mongoCollection, theGeom.type, coordinates, rec )
                 # break
-
-
         
     print("Loaded %s records into %s " % (mongoCollection.count(), mongoCollection.name))
             
@@ -197,22 +200,18 @@ def CreateMongoGeospatialDocument(mongoCollection, geospatialType, mongoCoordina
     except:
         print("****Error Inserting", mongoDocument)
 
-# # def ValidateP()
-# def CreateSpatialIndex(mongoCollection):
-#     """
 
-#     """
-#     print("Creating Spatial Index")
-#     CreateSpatialIndex(mongoCollection)
+def ValidateMultiLineString(feature):
+    """
 
-# def CreateGeoHashedIndex(mongoCollection, shardKey):
-#     """
-#     #"shardCollection may only be run against the admin database."
-#     #db.runCommand({shardCollection: "research.random10m_points_hashed",key:{HASH_2: "hashed"}})
-#     """
-    
-#     CreatGeoHashedIndex(mongoCollection, shardkey)
-    
+    """
+    mongoCoordinates = []
+    for aLine in feature.geoms:
+        lineCoordinates = CreateMongoLine(list(aLine.coords))
+        mongoCoordinates.append(lineCoordinates)
+
+    return mongoCoordinates
+
 def ValidateMultiPolygon(feature):
     """
 
@@ -242,7 +241,7 @@ def ReadShapefile(mongoCollection, inFilePath):
         for f, feature in enumerate(theShp):
             featureType = feature['geometry']['type']
             theFeaturePoints = feature['geometry']['coordinates']
-            # print(featureType)
+            print(featureType)
     
             if featureType ==  "Polygon":            
                 if len(feature['geometry']['coordinates']) == 1:
@@ -269,7 +268,9 @@ def ReadShapefile(mongoCollection, inFilePath):
             
             elif featureType == "LineString":
                 # { type: "LineString", coordinates: [ [ 40, 5 ], [ 41, 6 ] ] }
-                CreateMongoGeospatialDocument( mongoCollection, featureType, CreateMongoLine(theFeaturePoints), feature['properties'] ) 
+                mongoCoordinates = CreateMongoLine(theFeaturePoints)
+                # print(mongoCoordinates)
+                if mongoCoordinates: created = CreateMongoGeospatialDocument( mongoCollection, featureType, mongoCoordinates, feature['properties'] ) 
 
             elif featureType == "MultiLineString":
                     #  {
@@ -281,7 +282,7 @@ def ReadShapefile(mongoCollection, inFilePath):
                     #      [ [ -73.97880, 40.77247 ], [ -73.97036, 40.76811 ] ]
                     #   ]
                     # }
-                pass
+                break
 
             elif featureType == "Point":
                 #{ type: "Point", coordinates: [ 40, 5 ] }
@@ -300,13 +301,13 @@ def ReadShapefile(mongoCollection, inFilePath):
                 #     [ -73.9814, 40.7681 ]
                 #  ]
                 #}
-                pass
+                break
+            
             
 
-
             if created:
-                print(mongoCoordinates, feature['properties'])
-                break
+                # print(mongoCoordinates, feature['properties'])
+                
 
                 #'properties': feature['properties'] feature['properties']['BLOCKID10']
                 #print(mongoR, dir(mongoR))
@@ -325,7 +326,7 @@ def ReadShapefile(mongoCollection, inFilePath):
                 badGeoms.append(feature['id'])
     
     #Not correct
-    print("Loaded %s records into %s " % (mongoCollection.count(), mongoCollection))
+    print("Loaded %s records into %s " % (mongoCollection.count(), mongoCollection.name))
                 
 
         
