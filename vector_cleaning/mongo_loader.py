@@ -72,7 +72,7 @@ def CreateMongoLine(coordinateList):
     return( [list(c) for c in coordinateList ])
 
 
-def CreateMongoPolygon(theFeature, ):
+def CreateMongoPolygon(theFeature):
     """
     This is how Mongo wants a polygon
     {
@@ -129,7 +129,12 @@ def ReadCSV(mongoCollection, inFilePath, geomField="geom_text", delimiterChar=";
                 # mongoCoordinates = CreateMongoPoint(list(theGeom.coords)[0] ) 
                 # print(mongoCoordinates)
                 CreateMongoGeospatialDocument( mongoCollection, theGeom.type, CreateMongoPoint(list(theGeom.coords)[0]), rec )
-            if theGeom.type == "MultiPolygon":
+            # elif theGeom.type == ""
+            elif theGeom.type == "Polygon":
+                coordinates = CreateMongoPolygon(theGeom)
+                CreateMongoGeospatialDocument( mongoCollection, theGeom.type, coordinates, rec)
+
+            elif theGeom.type == "MultiPolygon":
                 # print("Number of polygons: ",len(theGeom.geoms))
                 coordinates = ValidateMultiPolygon(theGeom)
                 CreateMongoGeospatialDocument( mongoCollection, theGeom.type, coordinates, rec )
@@ -137,7 +142,7 @@ def ReadCSV(mongoCollection, inFilePath, geomField="geom_text", delimiterChar=";
 
 
         
-    print("Loaded %s records into %s " % (mongoCollection.count(), mongoCollection))
+    print("Loaded %s records into %s " % (mongoCollection.count(), mongoCollection.name))
             
     
         
