@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 
-This script loads shapefiles into MongoDB
+This script loads shapefiles and csv(WKT) into MongoDB
 """
 
 
@@ -14,6 +14,7 @@ from shapely.geometry import *
 from shapely.wkt import dumps, loads
 from pymongo import MongoClient, GEOSPHERE, HASHED
 from pymongo.errors import WriteError
+from collections import OrderedDict
 import timeit
 
 
@@ -168,7 +169,8 @@ def ShardCollection(mongoCon, databaseName, collectionName, shardkey, ):
     print("""{%s: "%s"}, key: {%s: "hashed"} """ % ("shardCollection", databaseMongoCollectionName, shardkey ))
     adminDB.command({"shardCollection": databaseMongoCollectionName, "key":{shardkey: "hashed"}})
     #usemongoDB.admin.command('shardCollection', databaseMongoCollectionName, key={shardkey: "hashed"})
-    del adminDB, mongoDB    
+    del adminDB, mongoDB   
+
 
 def MongoDBPrep(collectionName, mongoPort, mongoDatabase="research", shardkey=None):
     """
@@ -232,11 +234,6 @@ def ReadShapefile(mongoCollection, inFilePath):
     mongoCoordinates = []
     created = 0
     with fiona.open(inFilePath, 'r', crs=4326) as theShp:
-         
-        # mongoDB = mongoCon['research'] 
-        # mongoCollection  = mongoDB[collectionName]
-        # print(databaseName, mongoDatabase, mongoDB.list_collection_names())
-        
     
         for f, feature in enumerate(theShp):
             featureType = feature['geometry']['type']
@@ -305,14 +302,7 @@ def ReadShapefile(mongoCollection, inFilePath):
             
             
 
-            if created:
-                # print(mongoCoordinates, feature['properties'])
-                
-
-                #'properties': feature['properties'] feature['properties']['BLOCKID10']
-                #print(mongoR, dir(mongoR))
-                #print("Loaded %s %s of %s" % (featureType, feature['id'], len(theShp)))
-                
+            if created:                
                 if not len(theShp) % (f+1):
                     # print(f+1, mongoDocument)
                     progress(f+1, len(theShp), status='loading')
@@ -325,16 +315,21 @@ def ReadShapefile(mongoCollection, inFilePath):
                 print("Feature id %s is not valid" % (feature['id']))
                 badGeoms.append(feature['id'])
     
-    #Not correct
     print("Loaded %s records into %s " % (mongoCollection.count(), mongoCollection.name))
                 
+def WriteFile(filePath, theDictionary):
+    """
+    This function writes out the dictionary as csv
+    """
+    
+    thekeys = list(theDictionary.keys())
+    
 
-        
-        # if shardkey:
-
-        
-
-
+    fields = thekeys #list(theDictionary[thekeys[0]].keys())
+    theWriter = csv.DictWriter(filePath, fieldnames=fields)
+    theWriter.writeheader()
+    theWriter.writerow(theDictionary)
+    
 def argument_parser():
     """
     Parse arguments and return Arguments
@@ -342,14 +337,18 @@ def argument_parser():
     import argparse
 
     parser = argparse.ArgumentParser(description= "Module for loading geometry data into MongoDB")    
-     
+    
+    # group = parser.add_mutually_exclusive_group(required=True)
+    # group.add_argument('--distributed',action='store_true', dest="dist")
+    # group.add_argument('--reference',action='store_false', dest="dist")
+
     #Required Parameters for Databases
     parser.add_argument("-host", required=True, type=str, help="host location of the mongos instance", dest="host", default="localhost")   
     parser.add_argument("-p", required=True, type=int, help="port number of mongo", dest="port")   
-    
+    parser.add_argument("-d", required=True, type=str, help="Name of database", dest="db")
+
     parser.add_argument("-c", required=True, type=str, help="Name of MongoDB collection", dest="collectionName")
-    parser.add_argument("-f", required=False, type=str, help="Field Name for sharded collection", dest="shardKey")
-    parser.add_argument("-d", required=False, type=str, help="Name of database", dest="db")
+    parser.add_argument("-f", required=False, type=str, help="Field Name for sharded collection", dest="shardKey", default=None)
 
     parser.add_argument("-o", required=False, type=argparse.FileType('w'), help="The file path of the csv", dest="csv", default=None)
 
@@ -368,24 +367,38 @@ def argument_parser():
     return parser
         
 if __name__ == '__main__':
-    args = argument_parser().parse_args()
+    args, unknown = argument_parser().parse_known_args()
+    #Creating connection
+    mongoDB, mongoCollection = MongoDBPrep(args.collectionName, args.port, mongoDatabase=args.db, shardkey=args.shardKey)
     start = timeit.default_timer()      
     
-    # fileIn = args.shapefilePath
-    # if not args.collectionName: 
-    #     directory, shapeFileName = os.path.split(fileIn)
-    #     collectionName = shapeFileName.split('.')[0]
-    #     #LoadShapefile(fileIn, collectionName)
-    # else:
-    #     collectionName = args.collectionName
-
-    mongoDB, mongoCollection = MongoDBPrep(args.collectionName, args.port, mongoDatabase=args.db, shardkey=args.shardKey)
     if args.command == 'shapefile':
         ReadShapefile(mongoCollection, args.shapefilePath)
-        CreateSpatialIndex(mongoCollection)
+        
     elif args.command == 'csv':
         ReadCSV(mongoCollection, args.inCSV, args.geom, args.delimiter)            
-        CreateSpatialIndex(mongoCollection)
+    
+    stopLoad = timeit.default_timer()      
+    CreateSpatialIndex(mongoCollection)
+    stopSpatialIndex = timeit.default_timer()      
+    
+    #Timing Dictionary
+    times = OrderedDict([ ("connectionInfo", "Wrangler"), ("platform", "MongoDB"), ("dataset", args.collectionName), ("Loading_time", stopLoad-start), ("index_time", stopSpatialIndex-stopLoad) ])
+
+    #If the shardkey exists, then we create the geoHash
+    if args.shardKey:
+        print("Distributing collection {}".format(mongoCollection))
+        print("Creating Hashed Index on %s" % (shardkey))   
+        CreatGeoHashedIndex(mongoCollection, shardkey) 
+        stopGeoHash = timeit.default_timer()      
+        d = OrderedDict(["distributed_hash_time", stopGeoHash-stopSpatialIndex ] )
+        times.update(d)
+
+    stop = timeit.default_timer()      
+    print("All Processes have been completed: {:.2f} seconds".format(stop-start))
+     
+    if args.csv:
+        WriteFile(args.csv, times)
 
     print("Finished")            
             
