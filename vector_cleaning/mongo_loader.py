@@ -16,7 +16,7 @@ from pymongo import MongoClient, GEOSPHERE, HASHED
 from pymongo.errors import WriteError
 from collections import OrderedDict
 import timeit
-
+csv.field_size_limit(100000000)
 
 
 def CreateMongoConnection(host='localhost', port=27017):
@@ -117,6 +117,7 @@ def ReadCSV(mongoCollection, inFilePath, geomField="geom_text", delimiterChar=";
     geomField must be WKT
     """
     print("Reading CSV path %s and Loading records" % (inFilePath))
+    badgeom = []
     with open(inFilePath, 'r', newline="\n") as fin:
         csvIn = csv.DictReader(fin, delimiter=delimiterChar)
         
@@ -143,7 +144,9 @@ def ReadCSV(mongoCollection, inFilePath, geomField="geom_text", delimiterChar=";
             elif theGeom.type == "MultiPolygon":
                 # print("Number of polygons: ",len(theGeom.geoms))
                 coordinates = ValidateMultiPolygon(theGeom)
-                CreateMongoGeospatialDocument( mongoCollection, theGeom.type, coordinates, rec )
+                if coordinates:
+                    CreateMongoGeospatialDocument( mongoCollection, theGeom.type, coordinates, rec )
+            
                 # break
         
     print("Loaded %s records into %s " % (mongoCollection.count(), mongoCollection.name))
@@ -169,7 +172,7 @@ def ShardCollection(mongoCon, databaseName, collectionName, shardkey, ):
     print("""{%s: "%s"}, key: {%s: "hashed"} """ % ("shardCollection", databaseMongoCollectionName, shardkey ))
     adminDB.command({"shardCollection": databaseMongoCollectionName, "key":{shardkey: "hashed"}})
     #usemongoDB.admin.command('shardCollection', databaseMongoCollectionName, key={shardkey: "hashed"})
-    del adminDB, mongoDB   
+    del adminDB   
 
 
 def MongoDBPrep(collectionName, mongoPort, mongoDatabase="research", shardkey=None):
@@ -361,13 +364,14 @@ def argument_parser():
 
     csvParser = subparser.add_parser('csv')
     csvParser.add_argument("--txt", required=True, type=str, help="Input file path for the csv", dest="inCSV") 
-    csvParser.add_argument("--delimiter", required=True, type=str, help=""" "Delimiter for CSV default = "," """, dest="delimiter")
+    csvParser.add_argument("--delimiter", required=True, type=str, help=""" "Delimiter for CSV default = ";" """, dest="delimiter")
     csvParser.add_argument("--geom", required=True, help="The field name for the geometry text", dest="geom") 
     # csvParser.add_argument("--keyvalue", required=True, action='append', type=lambda kv: kv.split("="), dest='keyvalues') 
     return parser
         
 if __name__ == '__main__':
     args, unknown = argument_parser().parse_known_args()
+    #print(args)
     #Creating connection
     mongoDB, mongoCollection = MongoDBPrep(args.collectionName, args.port, mongoDatabase=args.db, shardkey=args.shardKey)
     start = timeit.default_timer()      
@@ -388,10 +392,10 @@ if __name__ == '__main__':
     #If the shardkey exists, then we create the geoHash
     if args.shardKey:
         print("Distributing collection {}".format(mongoCollection))
-        print("Creating Hashed Index on %s" % (shardkey))   
-        CreatGeoHashedIndex(mongoCollection, shardkey) 
+        print("Creating Hashed Index on %s" % (args.shardKey))   
+        CreatGeoHashedIndex(mongoCollection, args.shardKey) 
         stopGeoHash = timeit.default_timer()      
-        d = OrderedDict(["distributed_hash_time", stopGeoHash-stopSpatialIndex ] )
+        d = {"distributed_hash_time": stopGeoHash-stopSpatialIndex}
         times.update(d)
 
     stop = timeit.default_timer()      
