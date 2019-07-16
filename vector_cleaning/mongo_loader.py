@@ -120,16 +120,20 @@ def ReadCSV(mongoCollection, inFilePath, geomField="geom_text", delimiterChar=";
     badgeom = []
     with open(inFilePath, 'r', newline="\n") as fin:
         csvIn = csv.DictReader(fin, delimiter=delimiterChar)
-        
-        for r, rec in enumerate(csvIn):
+        geoDocuments = []
+        counter = 0
+        for  rec in csvIn:
             theGeom = loads(rec[geomField])
-            # del rec[geomField]
+            counter += 1
+            del rec[geomField]
             # print(theGeom.type, rec[geomField])
             if theGeom.type == "Point":
                 ### Loaded type is tuple. Convert to list and take the first item ###
-                # mongoCoordinates = CreateMongoPoint(list(theGeom.coords)[0] ) 
+                coordinates = CreateMongoPoint(list(theGeom.coords)[0] ) 
                 # print(mongoCoordinates)
-                CreateMongoGeospatialDocument( mongoCollection, theGeom.type, CreateMongoPoint(list(theGeom.coords)[0]), rec )
+                if coordinates:
+                    geoDocuments.append(CreateMongoGeoDocument(theGeom.type, coordinates, rec) )
+                    #CreateMongoGeospatialDocument( mongoCollection, theGeom.type, coordinates, rec )
             elif theGeom.type == "LineString":
                 print("Not finished")
                 break
@@ -147,8 +151,17 @@ def ReadCSV(mongoCollection, inFilePath, geomField="geom_text", delimiterChar=";
                 if coordinates:
                     CreateMongoGeospatialDocument( mongoCollection, theGeom.type, coordinates, rec )
             
-                # break
-        
+            if counter == 1003:
+                print("inserting")
+                # print(geoDocuments)
+                mongoR = mongoCollection.insert_many(geoDocuments)
+                geoDocuments = []
+                counter = 0
+                    
+        #Insert the remaining records
+        if counter:
+            mongoR = mongoCollection.insert_many(geoDocuments)
+
     print("Loaded %s records into %s " % (mongoCollection.count(), mongoCollection.name))
             
     
@@ -204,6 +217,16 @@ def CreateMongoGeospatialDocument(mongoCollection, geospatialType, mongoCoordina
         return 1
     except:
         print("****Error Inserting", mongoDocument)
+
+def CreateMongoGeoDocument(geospatialType,mongoCoordinates,featureAttributes):
+    """
+
+    """
+    mongoDocument = {'geom': {'type': geospatialType, 'coordinates': mongoCoordinates }  }
+    mongoDocument.update(featureAttributes) 
+
+    return mongoDocument
+
 
 
 def ValidateMultiLineString(feature):
