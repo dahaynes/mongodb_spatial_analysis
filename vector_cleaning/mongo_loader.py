@@ -152,7 +152,7 @@ def ReadCSV(mongoCollection, inFilePath, geomField="geom_text", delimiterChar=";
                     CreateMongoGeospatialDocument( mongoCollection, theGeom.type, coordinates, rec )
             
             if counter == 1003:
-                print("inserting")
+                # print("inserting")
                 # print(geoDocuments)
                 mongoR = mongoCollection.insert_many(geoDocuments)
                 geoDocuments = []
@@ -202,6 +202,7 @@ def MongoDBPrep(collectionName, mongoPort, mongoDatabase="research", shardkey=No
     mCollection  = mDB[collectionName]
     
     if shardkey:
+        timeit.time.sleep(15)
         ShardCollection(mCon, databaseName, collectionName, shardkey, )
 
     return mDB, mCollection
