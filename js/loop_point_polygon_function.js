@@ -2,6 +2,7 @@ function pointPolygonCount(polyCollection, pointCollection) {
 
 var polyCursor = db.getCollection(polyCollection).find();
 var startTime = new Date().getTime();
+var resultsDict = {};
 while (polyCursor.hasNext()) {
     var poly = polyCursor.next()
     var results = db.getCollection(pointCollection).aggregate(
@@ -22,12 +23,17 @@ while (polyCursor.hasNext()) {
     
     if (results._batch.length > 0){
         var points = results._batch[0].num_points;
-        print(poly.place_name, points);       
+        //print(poly.NAME, points);
+        resultsDict[poly.NAME] = points;
     } else {
-        print(poly.place_name, 0);        
+        //print(poly.NAME, 0);        
+        resultsDict[poly.NAME] = 0;
     }
         
 }
 var stopTime = new Date().getTime();
 print("Elapsed Time: ", stopTime-startTime)
+return resultsDict
 }
+
+pointPolygonCount("states","rand1_million")
