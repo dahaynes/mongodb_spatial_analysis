@@ -183,7 +183,14 @@ def ShardCollection(mongoCon, databaseName, collectionName, shardkey, ):
     adminDB.command('enableSharding', databaseName)
     #print(adminDB.command('listCommands'))
     print("""{%s: "%s"}, key: {%s: "hashed"} """ % ("shardCollection", databaseMongoCollectionName, shardkey ))
-    adminDB.command({"shardCollection": databaseMongoCollectionName, "key":{shardkey: "hashed"}})
+
+    try:
+        adminDB.command({"shardCollection": databaseMongoCollectionName, "key":{shardkey: "hashed"}})
+    except:
+        timeit.sleep(10)
+        adminDB.command({"shardCollection": databaseMongoCollectionName, "key":{shardkey: "hashed"}})
+
+    # adminDB.command({"shardCollection": databaseMongoCollectionName, "key":{shardkey: "hashed"}})
     #usemongoDB.admin.command('shardCollection', databaseMongoCollectionName, key={shardkey: "hashed"})
     del adminDB   
 
