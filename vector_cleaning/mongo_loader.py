@@ -151,7 +151,7 @@ def ReadCSV(mongoCollection, inFilePath, geomField="geom_text", delimiterChar=";
                 if coordinates:
                     CreateMongoGeospatialDocument( mongoCollection, theGeom.type, coordinates, rec )
             
-            if counter == 1003:
+            if counter == 1000:
                 # print("inserting")
                 # print(geoDocuments)
                 mongoR = mongoCollection.insert_many(geoDocuments)
@@ -202,7 +202,7 @@ def MongoDBPrep(collectionName, mongoPort, mongoDatabase="research", shardkey=No
     mCollection  = mDB[collectionName]
     
     if shardkey:
-        timeit.time.sleep(15)
+        timeit.time.sleep(30)
         ShardCollection(mCon, databaseName, collectionName, shardkey, )
 
     return mDB, mCollection
@@ -411,7 +411,7 @@ if __name__ == '__main__':
     stopSpatialIndex = timeit.default_timer()      
     
     #Timing Dictionary
-    times = OrderedDict([ ("connectionInfo", "Wrangler"), ("platform", "MongoDB"), ("dataset", args.collectionName), ("Loading_time", stopLoad-start), ("index_time", stopSpatialIndex-stopLoad) ])
+    times = OrderedDict([ ("connectionInfo", "Wrangler"), ("platform", "MongoDB"), ("dataset", args.collectionName), ("Loading_time", (stopLoad-start)-30), ("index_time", stopSpatialIndex-stopLoad) ])
 
     #If the shardkey exists, then we create the geoHash
     if args.shardKey:

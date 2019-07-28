@@ -10,12 +10,12 @@ do
 done
 
 
-for d in 1 10 50 100;
+for d in 1 10 50;
 do
 	for h in 2 4 6 8;
         do
 		#echo "${chunk}" and "${tiles}"
-		args=("-host localhost" "-d research" "-p 27020" "-c ${vector}_${d}_hash_${h}" "-f hash_${h}" "-o /group/vector_datasets/mongo_loading_${vector}_${d}M_hash_${h}_d7_14.csv" "csv --txt /group/vector_datasets/geom_csv/randpoints_${d}m_hashed.csv" "--geom geom_text --delimiter ;") 
+		args=("-host localhost" "-d research" "-p 27020" "-c ${vector}_${d}_hash_${h}" "-f hash_${h}" "-o /group/vector_datasets/mongo_loading_${vector}_${d}M_hash_${h}_d7_27.csv" "csv --txt /group/vector_datasets/geom_csv/randpoints_${d}m_hashed.csv" "--geom geom_text --delimiter ;") 
 		echo ${args[@]}
                 python3 mongo_loader.py  ${args[@]}
 	done
