@@ -15,7 +15,7 @@ from shapely.wkt import dumps, loads
 from pymongo import MongoClient, GEOSPHERE, HASHED
 from pymongo.errors import WriteError
 from collections import OrderedDict
-import timeit
+import timeit, json
 csv.field_size_limit(100000000)
 
 
@@ -111,22 +111,35 @@ def progress(count, total, status=''):
     print('[%s] %s%s ...%s\r' % (bar, percents, '%', status))
 
 
-def ReadCSV(mongoCollection, inFilePath, geomField="geom_text", delimiterChar=";"):
+def ReadCSV(mongoCollection, inFilePath, geomField="geom_text", delimiterChar=";", outCSVPath=None):
     """
     Function for reading in a large CSV
     geomField must be WKT
     """
     print("Reading CSV path %s and Loading records" % (inFilePath))
     badgeom = []
+    
+#    if outCSVPath: 
+#        print("Writing out MongoDB geoCSV")
+#        outFile = open(outCSVPath, 'w', newline="\n")
+         
+
     with open(inFilePath, 'r', newline="\n") as fin:
         csvIn = csv.DictReader(fin, delimiter=delimiterChar)
+#        print(csvIn.fieldnames, geomField)
+#        if outCSVPath:
+#            
+#            csvOut = csv.DictWriter(outFile, fieldnames=csvIn.fieldnames)
+#            csvOut.writeheader()
+        
         geoDocuments = []
         counter = 0
-        for  rec in csvIn:
+        for rec in csvIn:
             theGeom = loads(rec[geomField])
             counter += 1
             del rec[geomField]
-            # print(theGeom.type, rec[geomField])
+            
+            print(theGeom.type) #, rec[geomField])
             if theGeom.type == "Point":
                 ### Loaded type is tuple. Convert to list and take the first item ###
                 coordinates = CreateMongoPoint(list(theGeom.coords)[0] ) 
@@ -151,20 +164,57 @@ def ReadCSV(mongoCollection, inFilePath, geomField="geom_text", delimiterChar=";
                 if coordinates:
                     CreateMongoGeospatialDocument( mongoCollection, theGeom.type, coordinates, rec )
             
-            if counter == 1000:
+            if counter == 10:
                 # print("inserting")
                 # print(geoDocuments)
-                mongoR = mongoCollection.insert_many(geoDocuments)
+                if outCSVPath:
+                    WriteJSON(outCSVPath, geoDocuments)
+#                    json.dump(geoDocuments)
+#                    csvOut.writerows(geoDocuments)
+                else:
+                    mongoR = mongoCollection.insert_many(geoDocuments)
+                
                 geoDocuments = []
                 counter = 0
                     
         #Insert the remaining records
         if counter:
-            mongoR = mongoCollection.insert_many(geoDocuments)
+            if outCSVPath:
+                WriteJSON(outCSVPath, geoDocuments)
+#                json.dumps(geoDocuments)
+#                csvOut.writerows(geoDocuments)
+            else:
+                mongoR = mongoCollection.insert_many(geoDocuments)
 
     print("Loaded %s records into %s " % (mongoCollection.count(), mongoCollection.name))
+#    if outCSVPath: outFile.close()
             
+
+
+def WriteJSON(jsonFilePath, geoDocs):
+    """
     
+    """
+    
+    if os.path.isfile(jsonFilePath):
+        # File exists
+        with open(jsonFilePath, 'a+') as outfile:
+            outfile.seek(0, os.SEEK_END)
+            outfile.seek(outfile.tell()-1, 0)
+            outfile.truncate()
+            
+            for g in geoDocs:
+                outfile.write(',')
+                json.dump(g, outfile)
+                
+            outfile.write(']')
+    else: 
+        # Create file
+        with open(jsonFilePath, 'w') as outfile:
+    #            array = []
+    #            array.append(geoDocs)
+            json.dump(geoDocs, outfile)
+            print(json.dumps(geoDocs))
         
 
          
@@ -384,7 +434,8 @@ def argument_parser():
     parser.add_argument("-c", required=True, type=str, help="Name of MongoDB collection", dest="collectionName")
     parser.add_argument("-f", required=False, type=str, help="Field Name for sharded collection", dest="shardKey", default=None)
 
-    parser.add_argument("-o", required=False, type=argparse.FileType('w'), help="The file path of the csv", dest="csv", default=None)
+    parser.add_argument("-i", required=False, type=argparse.FileType('w'), help="The file path of the csv", dest="csv", default=None)
+    parser.add_argument("-o", required=False, help="The file path of the out csv", dest="out", default=None)
 
     subparser = parser.add_subparsers(help='sub-command help', dest="command")
     #Adding sub parsers requires the order of the arguments to be in a particular pattern
@@ -402,7 +453,7 @@ def argument_parser():
         
 if __name__ == '__main__':
     args, unknown = argument_parser().parse_known_args()
-    #print(args)
+    print(args)
     #Creating connection
     mongoDB, mongoCollection = MongoDBPrep(args.collectionName, args.port, mongoDatabase=args.db, shardkey=args.shardKey)
     start = timeit.default_timer()      
@@ -411,7 +462,8 @@ if __name__ == '__main__':
         ReadShapefile(mongoCollection, args.shapefilePath)
         
     elif args.command == 'csv':
-        ReadCSV(mongoCollection, args.inCSV, args.geom, args.delimiter)            
+        
+        ReadCSV(mongoCollection, args.inCSV, args.geom, args.delimiter, args.out)            
     
     stopLoad = timeit.default_timer()      
     CreateSpatialIndex(mongoCollection)
