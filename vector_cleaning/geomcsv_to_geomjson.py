@@ -69,18 +69,10 @@ def ReadCSV(inFilePath, geomField="geom_text", delimiterChar=";", outJSONPath=No
     print("Reading CSV path %s and Writing JSON to %s " % (inFilePath, outJSONPath))
     badgeom = []
     
-#    if outCSVPath: 
-#        print("Writing out MongoDB geoCSV")
-#        outFile = open(outCSVPath, 'w', newline="\n")
          
 
     with open(inFilePath, 'r', newline="\n") as fin:
         csvIn = csv.DictReader(fin, delimiter=delimiterChar)
-#        print(csvIn.fieldnames, geomField)
-#        if outCSVPath:
-#            
-#            csvOut = csv.DictWriter(outFile, fieldnames=csvIn.fieldnames)
-#            csvOut.writeheader()
         
         geoDocuments = []
         
@@ -142,7 +134,7 @@ def WriteJSON(jsonFilePath, geoDocs):
             outfile.truncate()
             
             for g in geoDocs:
-                outfile.write(',')
+                outfile.write(',\n')
                 json.dump(g, outfile)
                 
             outfile.write(']')
@@ -173,5 +165,11 @@ def argument_parser():
         
 if __name__ == '__main__':
     args, unknown = argument_parser().parse_known_args()
-    ReadCSV(args.csv, args.geom, args.delim, args.json)
+    if not args.json:
+        outJson = "{}.json".format(args.csv.split(".")[0])
+    else:
+        outJson = args.json
+    
+    ReadCSV(args.csv, args.geom, args.delim, outJson)
+    
     print("Finished")
