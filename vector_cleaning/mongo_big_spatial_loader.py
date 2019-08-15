@@ -69,7 +69,7 @@ def MongoDBPrep(collectionName, mongoPort, mongoDatabase="research", shardkey=No
     mCollection  = mDB[collectionName]
     print("Created Collection")
     if shardkey:
-        #timeit.time.sleep(30)
+        timeit.time.sleep(30)
         ShardCollection(mCon, databaseName, collectionName, shardkey, )
 
     return mDB, mCollection
@@ -93,7 +93,7 @@ def ShardCollection(mongoCon, databaseName, collectionName, shardkey, ):
     try:
         adminDB.command({"shardCollection": databaseMongoCollectionName, "key":{shardkey: "hashed"}})
     except:
-        timeit.sleep(10)
+        timeit.time.sleep(10)
         adminDB.command({"shardCollection": databaseMongoCollectionName, "key":{shardkey: "hashed"}})
 
     # adminDB.command({"shardCollection": databaseMongoCollectionName, "key":{shardkey: "hashed"}})
@@ -101,13 +101,13 @@ def ShardCollection(mongoCon, databaseName, collectionName, shardkey, ):
     del adminDB   
 
 
-def LoadJSON(mongoDB, mongoCollectionName, jsonFilePath):
+def LoadJSON(mongoHost, mongoDB,mongoPort, mongoCollectionName, jsonFilePath):
     """
     mongoimport --db research --collection counties44 
     --file c:\git\mongodb_spatial_analysis\datasets\small_points4.json --jsonArray
     """
     
-    mongoImportCommand = """mongoimport --db {} --collection {} --file {} --jsonArray""".format(mongoDB, mongoCollectionName, jsonFilePath)
+    mongoImportCommand = """mongoimport --host {} --db {} --port {} --collection {} --file {} --jsonArray""".format(mongoHost, mongoDB,mongoPort, mongoCollectionName, jsonFilePath)
     print(mongoImportCommand)
     p = subprocess.Popen(mongoImportCommand, shell=True)
     p.wait()
@@ -161,7 +161,7 @@ if __name__ == '__main__':
     print("Loading Dataset")
     start = timeit.default_timer()      
     
-    LoadJSON(args.db, args.collectionName, args.json)
+    LoadJSON(args.host,args.db,args.port, args.collectionName, args.json)
              
     stopLoad = timeit.default_timer()      
     CreateSpatialIndex(mongoCollection)

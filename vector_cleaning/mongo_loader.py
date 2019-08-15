@@ -238,7 +238,7 @@ def ShardCollection(mongoCon, databaseName, collectionName, shardkey, ):
     try:
         adminDB.command({"shardCollection": databaseMongoCollectionName, "key":{shardkey: "hashed"}})
     except:
-        timeit.sleep(10)
+        timeit.time.sleep(10)
         adminDB.command({"shardCollection": databaseMongoCollectionName, "key":{shardkey: "hashed"}})
 
     # adminDB.command({"shardCollection": databaseMongoCollectionName, "key":{shardkey: "hashed"}})
