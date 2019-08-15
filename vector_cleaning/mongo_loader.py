@@ -164,7 +164,7 @@ def ReadCSV(mongoCollection, inFilePath, geomField="geom_text", delimiterChar=";
                 if coordinates:
                     CreateMongoGeospatialDocument( mongoCollection, theGeom.type, coordinates, rec )
             
-            if counter == 10:
+            if counter == 1000:
                 # print("inserting")
                 # print(geoDocuments)
                 if outCSVPath:
@@ -214,7 +214,7 @@ def WriteJSON(jsonFilePath, geoDocs):
     #            array = []
     #            array.append(geoDocs)
             json.dump(geoDocs, outfile)
-            print(json.dumps(geoDocs))
+            # print(json.dumps(geoDocs))
         
 
          

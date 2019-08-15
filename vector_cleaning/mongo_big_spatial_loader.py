@@ -91,6 +91,7 @@ def ShardCollection(mongoCon, databaseName, collectionName, shardkey, ):
     print("""{%s: "%s"}, key: {%s: "hashed"} """ % ("shardCollection", databaseMongoCollectionName, shardkey ))
 
     try:
+        print("Attempting to shard")
         adminDB.command({"shardCollection": databaseMongoCollectionName, "key":{shardkey: "hashed"}})
     except:
         timeit.time.sleep(10)
