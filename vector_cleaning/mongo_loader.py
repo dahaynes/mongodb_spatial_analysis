@@ -139,7 +139,7 @@ def ReadCSV(mongoCollection, inFilePath, geomField="geom_text", delimiterChar=";
             counter += 1
             del rec[geomField]
             
-            print(theGeom.type) #, rec[geomField])
+            #print(theGeom.type) #, rec[geomField])
             if theGeom.type == "Point":
                 ### Loaded type is tuple. Convert to list and take the first item ###
                 coordinates = CreateMongoPoint(list(theGeom.coords)[0] ) 
@@ -230,6 +230,7 @@ def ShardCollection(mongoCon, databaseName, collectionName, shardkey, ):
     #mongoDB.admin.c
     #This command is still failing
     adminDB = mongoCon['admin']
+    print(databaseName)
     adminDB.command('enableSharding', databaseName)
     #print(adminDB.command('listCommands'))
     print("""{%s: "%s"}, key: {%s: "hashed"} """ % ("shardCollection", databaseMongoCollectionName, shardkey ))
