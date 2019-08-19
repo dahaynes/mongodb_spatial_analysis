@@ -52,6 +52,29 @@ def CreateMongoPolygon(theFeature):
     return(arrayCoordinates)
 
 
+def ValidateMultiLineString(feature):
+    """
+
+    """
+    mongoCoordinates = []
+    for aLine in feature.geoms:
+        lineCoordinates = CreateMongoLine(list(aLine.coords))
+        mongoCoordinates.append(lineCoordinates)
+
+    return mongoCoordinates
+
+def ValidateMultiPolygon(feature):
+    """
+
+    """
+    mongoCoordinates = []
+    for aPolygon in feature.geoms:
+        if aPolygon.is_valid and aPolygon.exterior.is_closed and aPolygon.exterior.is_valid:   
+            polygonCoordinates = CreateMongoPolygon(aPolygon)
+            mongoCoordinates.append(polygonCoordinates)
+
+    return mongoCoordinates
+    
 def CreateMongoGeoDocument(geospatialType,mongoCoordinates,featureAttributes):
     """
 
