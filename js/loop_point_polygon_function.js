@@ -24,10 +24,10 @@ while (polyCursor.hasNext()) {
     if (results._batch.length > 0){
         var points = results._batch[0].num_points;
         //print(poly.NAME, points);
-        resultsDict[poly.NAME] = points;
+        resultsDict[poly.place_name] = points;
     } else {
         //print(poly.NAME, 0);        
-        resultsDict[poly.NAME] = 0;
+        resultsDict[poly.place_name] = 0;
     }
         
 }
