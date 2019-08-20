@@ -4,12 +4,12 @@
 Converting geomCSV to JSON
 """
 
-import fiona, os, csv
+import fiona, os, csv, sys
 from shapely.geometry import *
 from shapely.wkt import dumps, loads
 from collections import OrderedDict
 import timeit, json
-
+csv.field_size_limit(sys.maxsize)
 
 def CreateMongoPoint(theCoordinates):
     """
@@ -129,7 +129,7 @@ def ReadCSV(inFilePath, geomField="geom_text", delimiterChar=";", outJSONPath=No
             
             if coordinates: geoDocuments.append(CreateMongoGeoDocument(theGeom.type, coordinates, rec) )
             
-            if len(geoDocuments) == 1000:
+            if len(geoDocuments) == 1:
 
                 WriteJSON(outJSONPath, geoDocuments)
 
