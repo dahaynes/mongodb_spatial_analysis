@@ -75,13 +75,21 @@ def CreateSpatialJoinFunction(db):
     return db
 
 
+def LoadFunctions(mdbCon):
+    """
+    JavaScript function has to exist previously
+    db.eval("db.loadServerScripts()")
+    """
 
-# ''' \n    var polyCursor = db.getCollection(polyCollection).find();\n    var startTime = new Date().getTime();\n    var resultsDict = {};\n    while (polyCursor.hasNext()) {\n        var poly = polyCursor.next()\n        var results = db.getCollection(pointCollection).aggregate(\n        [\n            {\n                "$match": {\n
-#                   "geom": {\n                        $geoIntersects: {\n
-#                 $geometry: poly.geom\n                        }\n
-#  }\n                }\n            },\n            {\n                "$count": "num_points"\n            }\n        ]);\n        \n        if (results._batch.length >
-# 0){\n            var points = results._batch[0].num_points;\n            //print(poly.place_name, points);\n            resultsDict[poly.place_name] = points;\n
-# } else {\n            //print(poly.NAME, 0);        \n            resultsDict[poly.place_name] = 0;\n        }\n        \n    }\n    var stopTime = new Date().getTime();\n    print("Elapsed Time: ", stopTime-startTime);\n    return resultsDict;\n    '''
+    mdbCon.eval("db.loadServerScripts()")
+
+
+def PointPolygonQuery(polygonDataset, pointDataset):
+    """
+    pointPolygonCount2("states","synthetic_1_hash_2")
+    """
+    return """ pointPolygonCount2("{}","{}") """.format(polygonDataset, pointDataset)
+
 
 def PointPolygonJoin(pointDatasets, polygonDatasets):
     """
@@ -89,6 +97,7 @@ def PointPolygonJoin(pointDatasets, polygonDatasets):
     """
     #OrderedDict( [( ("point", "%s_hash_%s" % (p, h)), ("polygon", poly) ) for p in pointDatasets for h in range(2,10,2) for poly in polygonDatasets ] )
     return [ OrderedDict([ ("point_table", "%s_hash_%s" % (p, h)), ("poly_table", poly) ]) for p in pointDatasets for h in range(2,10,2) for poly in polygonDatasets ]
+
 
 def WriteFile(filePath, theDictionary):
     """
@@ -105,6 +114,8 @@ def WriteFile(filePath, theDictionary):
         for k in theDictionary.keys():
             theWriter.writerow(theDictionary[k])
 
+
+
 def argument_parser():
     """
     Parse arguments and return Arguments
@@ -120,14 +131,14 @@ def argument_parser():
     parser.add_argument("--host", required=True, type=str, help="Host of database", dest="host")
     parser.add_argument("-d", required=True, type=str, help="Name of database", dest="db")
     parser.add_argument("-p", required=True, type=int, help="port number of citusDB", dest="port")   
-    parser.add_argument("-u", required=True, type=str, help="db username", dest="user")
+    
 
     subparser = parser.add_subparsers(dest="command")
     pointPolyJoin_subparser = subparser.add_parser('point_polygon_join')
     pointPolyJoin_subparser.set_defaults(func=PointPolygonJoin) #["random","synthetic"])
     
-    pointPolyJoin_subparser.add_argument("--point", required=False, help="Table name of the point dataset", dest="point")
-    pointPolyJoin_subparser.add_argument("--polygon", required=False, help="Table name of the polygon dataset", dest="polygon")
+#    pointPolyJoin_subparser.add_argument("--point", required=False, help="Table name of the point dataset", dest="point")
+#    pointPolyJoin_subparser.add_argument("--polygon", required=False, help="Table name of the polygon dataset", dest="polygon")
 
     centroid_subparser = subparser.add_parser('centroid')
     centroid_subparser.add_argument("--polygon", required=False, help="Table name of the polygon dataset", dest="polygon")
@@ -151,6 +162,35 @@ def argument_parser():
 if __name__ == '__main__':
 
     args, unknown = argument_parser().parse_known_args()
-
+    
+    timings = OrderedDict()
     mongoCon = CreateMongoConnection()
     theDB = mongoCon[args.db]
+    LoadFunctions(theDB)
+        
+    pointDatasets = ["%s_%s" % (i, size) for i in ["random", "synthetic"] for size in [1,10] ] #,50,100
+    polygonDatasets = ["state", "county"] #, "tracts", "blocks"]    
+    
+    
+    if args.command == "point_polygon_join":
+#        print("HERE")
+        datasets = args.func(pointDatasets, polygonDatasets)
+        queries = [ PointPolygonQuery(d['poly_table'], d['point_table']) for d in datasets]
+#        print(datasets)
+#        print(queries)
+
+
+        
+    for query, d in zip(queries, datasets):
+        for r in range(1,args.runs+1):
+            start = timeit.default_timer()
+            print(query)
+            #r = theDB.eval(q)
+            stop = timeit.default_timer()
+            queryTime = stop-start
+            # tables = "%s_%s" % ()
+            timings[(r,d["point_table"], d["poly_table"])] = OrderedDict([ ("point_table", d["point_table"]), ("poly_table", d["poly_table"]), ("query_time", queryTime)  ])
+        
+            
+    if args.csv: WriteFile(args.csv, timings)
+    print("Finished")
