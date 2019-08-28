@@ -5,7 +5,7 @@ Spyder Editor
 This script is used to for performance tests on MongoDB (Vector)
 """
 
-import fiona, os, csv
+import fiona, os, csv, subprocess
 from pymongo import MongoClient, GEOSPHERE, HASHED
 from pymongo.errors import WriteError
 from collections import OrderedDict
@@ -75,13 +75,13 @@ def CreateSpatialJoinFunction(db):
     return db
 
 
-def LoadFunctions(mdbCon):
+def LoadFunctions():
     """
     JavaScript function has to exist previously
     db.eval("db.loadServerScripts()")
     """
 
-    mdbCon.eval("db.loadServerScripts()")
+    return ["use research;", "db.loadServerScripts();"]
 
 
 def PointPolygonQuery(polygonDataset, pointDataset):
@@ -97,6 +97,14 @@ def PointPolygonJoin(pointDatasets, polygonDatasets):
     """
     #OrderedDict( [( ("point", "%s_hash_%s" % (p, h)), ("polygon", poly) ) for p in pointDatasets for h in range(2,10,2) for poly in polygonDatasets ] )
     return [ OrderedDict([ ("point_table", "%s_hash_%s" % (p, h)), ("poly_table", poly) ]) for p in pointDatasets for h in range(2,10,2) for poly in polygonDatasets ]
+
+def WriteJSFile(filePath, listofStrings):
+    """
+
+    """
+    with open(filePath, 'w', newline="\n") as fOut:
+        for i in listofStrings:
+            fOut.writelines("{}\n".format(i) )
 
 
 def WriteFile(filePath, theDictionary):
@@ -162,11 +170,11 @@ def argument_parser():
 if __name__ == '__main__':
 
     args, unknown = argument_parser().parse_known_args()
-    
+    outJSPath = "../js/test1.js"
     timings = OrderedDict()
     mongoCon = CreateMongoConnection(args.host, args.port)
     theDB = mongoCon[args.db]
-    LoadFunctions(theDB)
+    theFunctions = LoadFunctions()
         
     pointDatasets = ["%s_%s" % (i, size) for i in ["random", "synthetic"] for size in [1,10] ] #,50,100
     polygonDatasets = ["state", "county"] #, "tracts", "blocks"]    
@@ -182,13 +190,19 @@ if __name__ == '__main__':
 
         
     for query, d in zip(queries, datasets):
+        theFunctions.append(query)
+        WriteJSFile(outJSPath, listofStrings)
         for r in range(1,args.runs+1):
+            
+
             start = timeit.default_timer()
-            k = theDB.eval("db.loadServerScripts()")
-            print(k)
-            #print(d["point_table"] )
-            r = theDB.eval(query)
-            print(r)
+
+            finalCommand = r"mongo research --port {} < {}" % (args.port, outJSPath)
+            print(finalCommand)            
+            p = subprocess.Popen(finalCommand, shell=True)
+            p.wait()
+            out, err = p.communicate()
+
             stop = timeit.default_timer()
             queryTime = stop-start
             # tables = "%s_%s" % ()
