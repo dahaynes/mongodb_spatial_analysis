@@ -86,9 +86,9 @@ def LoadFunctions(mdbCon):
 
 def PointPolygonQuery(polygonDataset, pointDataset):
     """
-    pointPolygonCount2("states","synthetic_1_hash_2")
+    pointPolygonCount("states","synthetic_1_hash_2")
     """
-    return """ pointPolygonCount2("{}","{}") """.format(polygonDataset, pointDataset)
+    return """ pointPolygonCount("{}","{}") """.format(polygonDataset, pointDataset)
 
 
 def PointPolygonJoin(pointDatasets, polygonDatasets):
@@ -164,7 +164,7 @@ if __name__ == '__main__':
     args, unknown = argument_parser().parse_known_args()
     
     timings = OrderedDict()
-    mongoCon = CreateMongoConnection()
+    mongoCon = CreateMongoConnection(args.host, args.port)
     theDB = mongoCon[args.db]
     LoadFunctions(theDB)
         
@@ -184,12 +184,15 @@ if __name__ == '__main__':
     for query, d in zip(queries, datasets):
         for r in range(1,args.runs+1):
             start = timeit.default_timer()
-            print(query)
-            #r = theDB.eval(q)
+            k = theDB.eval("db.loadServerScripts()")
+            print(k)
+            #print(d["point_table"] )
+            r = theDB.eval(query)
+            print(r)
             stop = timeit.default_timer()
             queryTime = stop-start
             # tables = "%s_%s" % ()
-            timings[(r,d["point_table"], d["poly_table"])] = OrderedDict([ ("point_table", d["point_table"]), ("poly_table", d["poly_table"]), ("query_time", queryTime)  ])
+            #timings[(r,d["point_table"], d["poly_table"])] = OrderedDict([ ("point_table", d["point_table"]), ("poly_table", d["poly_table"]), ("query_time", queryTime),("run",r)  ])
         
             
     if args.csv: WriteFile(args.csv, timings)
