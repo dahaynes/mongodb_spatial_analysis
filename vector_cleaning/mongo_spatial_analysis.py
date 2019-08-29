@@ -75,6 +75,15 @@ def CreateSpatialJoinFunction(db):
     return db
 
 
+def LoadMongoFunctions(mdbCon):
+    """
+    JavaScript function has to exist previously
+    db.eval("db.loadServerScripts()")
+    """
+
+    mdbCon.eval("db.loadServerScripts()")
+
+
 def LoadFunctions():
     """
     JavaScript function has to exist previously
@@ -88,7 +97,7 @@ def PointPolygonQuery(polygonDataset, pointDataset):
     """
     pointPolygonCount("states","synthetic_1_hash_2")
     """
-    return """ pointPolygonCount("{}","{}") """.format(polygonDataset, pointDataset)
+    return """var k = pointPolygonCount("{}","{}"); """.format(polygonDataset, pointDataset)
 
 
 def PointPolygonJoin(pointDatasets, polygonDatasets):
@@ -175,9 +184,9 @@ if __name__ == '__main__':
     mongoCon = CreateMongoConnection(args.host, args.port)
     theDB = mongoCon[args.db]
     theFunctions = LoadFunctions()
-        
+    # LoadMongoFunctions(theDB)     
     pointDatasets = ["%s_%s" % (i, size) for i in ["random", "synthetic"] for size in [1,10] ] #,50,100
-    polygonDatasets = ["state", "county"] #, "tracts", "blocks"]    
+    polygonDatasets = ["states", "counties" "tracts"]#, "blocks"]    
     
     
     if args.command == "point_polygon_join":
@@ -191,13 +200,13 @@ if __name__ == '__main__':
         
     for query, d in zip(queries, datasets):
         theFunctions.append(query)
-        WriteJSFile(outJSPath, listofStrings)
+        WriteJSFile(outJSPath, theFunctions)
         for r in range(1,args.runs+1):
             
 
             start = timeit.default_timer()
-
-            finalCommand = r"mongo research --port {} < {}" % (args.port, outJSPath)
+            # r = theDB.eval(query)
+            finalCommand = r"mongo research --port {} < {}".format(args.port, outJSPath)
             print(finalCommand)            
             p = subprocess.Popen(finalCommand, shell=True)
             p.wait()
@@ -205,8 +214,9 @@ if __name__ == '__main__':
 
             stop = timeit.default_timer()
             queryTime = stop-start
+            theFunctions.pop()
             # tables = "%s_%s" % ()
-            #timings[(r,d["point_table"], d["poly_table"])] = OrderedDict([ ("point_table", d["point_table"]), ("poly_table", d["poly_table"]), ("query_time", queryTime),("run",r)  ])
+            timings[(r,d["point_table"], d["poly_table"])] = OrderedDict([ ("point_table", d["point_table"]), ("poly_table", d["poly_table"]), ("query_time", queryTime),("run",r)  ])
         
             
     if args.csv: WriteFile(args.csv, timings)
