@@ -186,7 +186,7 @@ if __name__ == '__main__':
     theFunctions = LoadFunctions()
     # LoadMongoFunctions(theDB)     
     pointDatasets = ["%s_%s" % (i, size) for i in ["random", "synthetic"] for size in [1,10] ] #,50,100
-    polygonDatasets = ["states", "counties" "tracts"]#, "blocks"]    
+    polygonDatasets = ["states", "counties", "tracts"]#, "blocks"]    
     
     
     if args.command == "point_polygon_join":
@@ -201,6 +201,7 @@ if __name__ == '__main__':
     for query, d in zip(queries, datasets):
         theFunctions.append(query)
         WriteJSFile(outJSPath, theFunctions)
+        theFunctions.pop()
         for r in range(1,args.runs+1):
             
 
@@ -214,7 +215,7 @@ if __name__ == '__main__':
 
             stop = timeit.default_timer()
             queryTime = stop-start
-            theFunctions.pop()
+            # theFunctions.pop()
             # tables = "%s_%s" % ()
             timings[(r,d["point_table"], d["poly_table"])] = OrderedDict([ ("point_table", d["point_table"]), ("poly_table", d["poly_table"]), ("query_time", queryTime),("run",r)  ])
         
